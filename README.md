@@ -31,17 +31,17 @@ Windows 可直接雙擊 `啟動遊戲.bat`。
 ## 環境變數
 | 名稱 | 位置 | 說明 |
 | --- | --- | --- |
-| `VITE_GAME_SERVER_URL` | 前端建置 | 伺服器網址（正式環境必填；GitHub 工作流程由倉庫變數 `GAME_SERVER_URL` 提供）。未設定時，線上模式會顯示「尚未設定伺服器網址」，不會偷偷連到 localhost。 |
+| `VITE_GAME_SERVER_URL` | 前端建置 | 啟用線上對戰時設定；GitHub 工作流程由倉庫變數 `GAME_SERVER_URL` 提供。未設定時仍可部署單機模式，線上模式會顯示「尚未設定伺服器網址」，不會偷偷連到 localhost。 |
 | `PORT` | 伺服器 | 預設 3090 |
 | `GAME_ALLOWED_ORIGIN` | 伺服器 | 允許連線的網頁來源，逗號分隔，例如 `https://帳號.github.io` |
 
 複製 `.env.example` 為 `.env` 即可本機調整。**不要把任何 token 或密鑰寫進程式碼或提交進倉庫。**
 
-## 部署（Render + GitHub Pages）
-1. **伺服器（Render）**：以 `render.yaml` 建立 Blueprint（區域為 `singapore`），在 Render 面板設定 `GAME_ALLOWED_ORIGIN` 為 GitHub Pages 網站的來源網址，只填網域來源、不含遊戲路徑。免費方案閒置後會休眠，第一次連線可能要等約一分鐘（畫面會顯示「伺服器正在喚醒」）。
-2. **GitHub Pages**：在倉庫 Settings → Pages 將 Build and deployment 的 Source 設為「GitHub Actions」。
-3. **Repository Variables**：在 Settings → Secrets and variables → Actions → Variables 新增 `GAME_SERVER_URL`，填 Render 面板顯示的服務 HTTPS 網址來源，不含路徑。這是公開網址，不是 secret；部署 workflow 會在建置前檢查格式。`GA_MEASUREMENT_ID` 可選，用來覆寫預設 GA4 ID。
-4. 推送到 `main` 或 `master` 後，`.github/workflows/deploy-pages.yml` 會安裝 lockfile 指定的依賴、執行專案檢查、建置並部署到 Pages。workflow 使用 GitHub 內建 `GITHUB_TOKEN`，不需要建立或貼入 PAT。部署狀態與錯誤可在倉庫 Actions 頁面查看；回滾時還原到已知可用的 commit，再推送該變更。
+## 部署（GitHub Pages）
+1. 在倉庫 Settings → Pages 將 Build and deployment 的 Source 設為「GitHub Actions」。
+2. 推送到 `main` 或 `master` 後，`.github/workflows/deploy-pages.yml` 會安裝 lockfile 指定的依賴、執行專案檢查、建置並部署到 Pages。未設定 `GAME_SERVER_URL` 時會部署單機模式；線上對戰會提示伺服器尚未設定。
+3. 要啟用線上對戰時，再以 `render.yaml` 建立 Render Blueprint（區域為 `singapore`），設定 `GAME_ALLOWED_ORIGIN` 為 GitHub Pages 網站來源網址；然後在 Settings → Secrets and variables → Actions → Variables 設定 `GAME_SERVER_URL` 為 Render 面板顯示的 HTTPS 網址來源（不含路徑）。這是公開網址，不是 secret；workflow 會驗證格式。免費方案閒置後會休眠，第一次連線可能要等約一分鐘。`GA_MEASUREMENT_ID` 可選，用來覆寫預設 GA4 ID。
+4. workflow 使用 GitHub 內建 `GITHUB_TOKEN`，不需要建立或貼入 PAT。部署狀態與錯誤可在倉庫 Actions 頁面查看；回滾時還原到已知可用的 commit，再推送該變更。
 
 ## Blender 素材（選用）
 見 `blender/README.md`。沒有 glb 時遊戲使用程式產生的模型。
