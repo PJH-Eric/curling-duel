@@ -1,0 +1,32 @@
+# Koyeb 部署設定（對應 render.yaml）。
+# 注意：Koyeb 目前以後台表單為主要設定方式，此檔作為設定的版本化參考，
+# 欄位請以 Koyeb 官方文件為準；實際部署步驟見 docs/koyeb-deploy.md。
+name: ice-duel
+services:
+  - name: ice-duel-server
+    type: web
+    git:
+      repository: PJH-Eric/curling-duel
+      branch: main
+    build:
+      builder: buildpack
+      build_command: npm ci
+    run_command: npx tsx server/index.ts
+    ports:
+      - port: 8000
+        protocol: http
+    health_checks:
+      - protocol: http
+        port: 8000
+        path: /health
+    env:
+      - name: NODE_VERSION
+        value: "20"
+      - name: PORT
+        value: "8000"
+      # 只填網域（不含路徑）。GitHub Pages 的 origin 為 https://pjh-eric.github.io
+      - name: GAME_ALLOWED_ORIGIN
+        value: https://pjh-eric.github.io
+    instance_type: free
+    regions:
+      - sin
