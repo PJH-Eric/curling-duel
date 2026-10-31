@@ -82,9 +82,8 @@ export function mountGame(root: HTMLElement, o: GameScreenOpts): () => void {
 
   const sbHost = h('div', { class: 'scoreboard' })
   const banner = h('div', { class: 'banner', style: { display: 'none' } })
-  const tl = h('div', { class: 'hud-tl' }, sbHost, banner)
-
   const sideTab = IconButton(be.sendChat ? 'chat' : 'info', t('game.sidePanel'), () => toggleSide(true), 'side-tab')
+  const tl = h('div', { class: 'hud-tl' }, sbHost, sideTab, banner)
   const settingsBtn = IconButton('gear', t('common.settings'), () => o.onSettings())
   const menuBtn = IconButton('home', t('game.menu'), () => confirmExit())
   sideTab.append(badge)
@@ -109,7 +108,7 @@ export function mountGame(root: HTMLElement, o: GameScreenOpts): () => void {
   const ctlRight = h('div', { class: 'ctl-right' }, throwBtn, sweepGhost, sweepBtn)
   const controls = h('div', { class: 'controls' }, ctlLeft, ctlRight)
 
-  const hud = h('div', { class: 'hud-layer' }, tl, tc, tr, sideTab, minimap, judge, controls)
+  const hud = h('div', { class: 'hud-layer' }, tl, tc, tr, minimap, judge, controls)
   const stage = h('div', { class: 'stage' }, canvas, hud)
   const game = h('div', { class: 'game' }, side, stage)
   root.append(game)
