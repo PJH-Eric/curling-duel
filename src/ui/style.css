@@ -417,15 +417,25 @@ button.card:hover { border-color: var(--focus); }
   .turn-chip { padding: 3px 10px; font-size: 12px; }
   .turn-chip small { display: none; }
   .timer { min-width: 0; margin-left: 6px; padding: 0 6px; }
-  .controls { gap: 8px; padding-bottom: calc(var(--safe-b) + 12px); }
-  .ctl-left { gap: 10px; }
-  .gauge-val { top: -20px; }
-  .ctl-row .btn.spin-btn { flex: 0 0 54px; min-height: 46px; }
+  .controls { display: grid; grid-template-columns: minmax(0, 1fr) 92px; gap: 4px 6px; padding-top: 0; padding-bottom: calc(var(--safe-b) + 8px); }
+  .ctl-left { display: contents; }
+  .gauge { grid-column: 1 / -1; grid-row: 1; height: 44px; }
+  .gauge-tag { height: 28px; padding: 0 16px 0 10px; font-size: 13px; }
+  .gauge-bar { height: 20px; }
+  .gauge-knob { height: 32px; top: -9px; }
+  .gauge-val { position: static; flex: none; margin-left: 6px; padding: 0 4px; font-size: 12px; }
+  .ctl-row { grid-column: 1; grid-row: 2; gap: 4px; }
+  .ctl-row .btn.spin-btn { flex: 0 0 44px; min-height: 44px; }
   .ctl-row .btn.spin-btn .btn-label { display: none; }
   .ctl-row .btn.spin-btn .btn-icon { width: 22px; height: 22px; }
-  .ctl-row .btn:not(.spin-btn) { min-height: 46px; font-size: 13px; }
-  .ctl-right { gap: 10px; }
-  .throw-btn { min-height: 58px; font-size: 22px; }
+  .ctl-row .btn:not(.spin-btn) { min-height: 44px; font-size: 12px; }
+  .ctl-row .btn:not(.spin-btn) .btn-icon { display: none; }
+  .ctl-right { grid-column: 2; grid-row: 2; gap: 0; }
+  .throw-btn { min-width: 0; min-height: 44px; padding: 0 8px; font-size: 18px; }
+  .sweep-ghost { display: none; }
+  .ctl-right:only-child { grid-column: 1 / -1; grid-row: 1; justify-self: end; width: 140px; }
+  .sweep-btn { min-width: 0; min-height: 52px; padding: 0 12px; font-size: 20px; }
+  .sweep-btn .btn-icon { width: 24px; height: 24px; }
 }
 @media (orientation: landscape) and (max-height: 520px) {
   .minimap { width: 62px; top: calc(var(--safe-t) + 60px); right: calc(var(--safe-r) + 10px); }
