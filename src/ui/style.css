@@ -179,6 +179,7 @@ button.card:hover { border-color: var(--focus); }
 .sb-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-score { background: #fff; color: #2457d6; min-width: 46px; text-align: center; padding: 0 6px; font-size: 20px; }
 .pips { display: flex; gap: 4px; margin-right: 12px; }
+.sb-remaining { display: none; }
 .pip { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; background: #4ade80; }
 .pip.used { background: #2a3566; opacity: .6; }
 .banner { display: inline-block; margin-top: 4px; background: var(--green); font-weight: 800; font-size: 13px; padding: 3px 22px; clip-path: polygon(4% 0, 96% 0, 100% 50%, 96% 100%, 4% 100%, 0 50%); }
@@ -294,10 +295,12 @@ button.card:hover { border-color: var(--focus); }
   .gauge { height: 38px; }
   .scoreboard { width: min(256px, calc(100vw - 134px)); }
   .hud-tr { gap: 4px; } .hud-tr .icon-btn { width: 40px; height: 40px; }
-  .sb-row { height: 30px; font-size: 14px; }
-  .sb-row { gap: 6px; padding-left: 10px; }
-  .pips { gap: 1.5px; margin-right: 4px; }
-  .pip { width: 7px; height: 7px; border-width: 1.5px; }
+  .sb-row { display: grid; grid-template-columns: 13px minmax(0, 1fr) 38px; height: auto; min-height: 48px; column-gap: 6px; row-gap: 2px; padding: 2px 0 4px 10px; font-size: 14px; }
+  .sb-name { grid-column: 2; grid-row: 1; }
+  .sb-score { grid-column: 3; grid-row: 1; }
+  .pips { grid-column: 1 / -1; grid-row: 2; align-items: center; gap: 3px; margin-right: 12px; }
+  .pip { flex: none; width: 7px; height: 7px; border-width: 1.5px; }
+  .sb-remaining { display: inline; margin-left: auto; font-size: 12px; line-height: 16px; white-space: nowrap; }
   .sb-dot { width: 13px; height: 13px; }
   .sb-score { font-size: 17px; min-width: 38px; }
   .hint-bar { display: none; }
@@ -362,7 +365,6 @@ button.card:hover { border-color: var(--focus); }
   .hud-tr { gap: 3px; right: calc(var(--safe-r) + 6px); }
   .hud-tr .icon-btn { width: 34px; height: 34px; }
   .scoreboard { width: min(236px, calc(100vw - 152px)); }
-  .pips { display: none; }
   .field-label { font-size: 13px; }
 }
 

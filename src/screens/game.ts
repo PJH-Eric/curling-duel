@@ -180,6 +180,7 @@ export function mountGame(root: HTMLElement, o: GameScreenOpts): () => void {
       const cap = g.kind === 'standard' ? g.config.stonesPerTeam : g.kind === 'mission' ? MISSIONS.find((m) => m.id === g.missionId)!.stones : g.config.stonesPerTeam
       const pips = h('div', { class: 'pips' })
       for (let i = 0; i < cap; i++) pips.append(h('span', { class: `pip${i >= left ? ' used' : ''}` }))
+      pips.append(h('span', { class: 'sb-remaining', text: t('game.stonesLeft', { n: left }) }))
       const isTurn = myTurn ? myTurn.team === team : turnOf(g)?.team === team
       sbHost.append(h('div', { class: `sb-row${isTurn ? ' turn' : ''}` },
         h('span', { class: 'sb-dot', style: { background: colors[team] }, attrs: { 'data-team': team } }),
