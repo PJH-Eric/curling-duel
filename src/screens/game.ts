@@ -384,6 +384,7 @@ export function mountGame(root: HTMLElement, o: GameScreenOpts): () => void {
     arena.setCameraMode('aim')
     if (seat?.local && !be.spectator && !thinking) {
       phase = 'aim'
+      controls.prepend(ctlLeft)
       controls.style.display = ''
       sweepBtn.style.display = 'none'
       sweepGhost.style.display = ''
@@ -425,8 +426,8 @@ export function mountGame(root: HTMLElement, o: GameScreenOpts): () => void {
     simLive = true
     startSimView(turn.team)
     controls.style.display = ''
-    gauge.el.style.display = 'none'
-    ctlLeft.style.display = 'none'
+    // Remove aiming controls during sliding so mobile browsers cannot retain painted fragments.
+    ctlLeft.remove()
     throwBtn.style.display = 'none'
     sweepGhost.style.display = 'none'
     sweepBtn.style.display = ''
@@ -511,8 +512,6 @@ export function mountGame(root: HTMLElement, o: GameScreenOpts): () => void {
     arena.syncStones(rec.after, 0)
     arena.setSweeping(false)
     arena.setActiveStone(null)
-    gauge.el.style.display = ''
-    ctlLeft.style.display = ''
     controls.style.display = 'none'
     hint.style.display = 'none'
     if (rec.fgzViolation) {
