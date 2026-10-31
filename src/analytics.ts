@@ -26,7 +26,8 @@ export function initAnalytics(): void {
   siteUrl = site
   if (location.hostname !== new URL(site).hostname || location.hostname !== 'pjh-eric.github.io' || !/^G-[A-Z0-9]+$/.test(o.measurement_id)) return
   w.dataLayer = w.dataLayer || []
-  w.gtag = w.gtag || function (...args: unknown[]) { (w.dataLayer as unknown[]).push(args) }
+  // Google tag requires Arguments objects; ordinary arrays are not processed as commands.
+  w.gtag = w.gtag || function () { (w.dataLayer as unknown[]).push(arguments) }
   w.gtag('js', new Date())
   w.gtag('config', o.measurement_id, {
     game_id: gameId, page_location: site, send_page_view: false, page_referrer: cleanUrl(document.referrer),
