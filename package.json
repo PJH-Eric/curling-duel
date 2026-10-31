@@ -1,0 +1,31 @@
+{
+  "name": "ice-duel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "冰壺對決：回合制 3D 冰壺（Vite + TypeScript + Three.js）",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "seo": "node scripts/inject-seo.mjs",
+    "server": "tsx server/index.ts",
+    "start": "npm run build && tsx server/index.ts",
+    "test": "vitest run",
+    "verify": "npm run test && tsx scripts/ai-match.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "three": "0.160.0",
+    "ws": "^8.18.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/ws": "^8.5.12",
+    "@types/node": "^22.0.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.160.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}

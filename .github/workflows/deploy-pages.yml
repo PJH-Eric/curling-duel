@@ -1,0 +1,81 @@
+name: Deploy Ice Duel to GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/configure-pages@v6
+      - name: Validate public game server URL
+        env:
+          GAME_SERVER_URL: ${{ vars.GAME_SERVER_URL }}
+        run: |
+          node --input-type=module -e '
+            const raw = process.env.GAME_SERVER_URL?.trim();
+            if (!raw) {
+              throw new Error("請先在 repository Actions Variables 設定 GAME_SERVER_URL。");
+            }
+
+            let url;
+            try {
+              url = new URL(raw);
+            } catch {
+              throw new Error("GAME_SERVER_URL 必須是完整的 HTTPS 網址。");
+            }
+
+            if (
+              url.protocol !== "https:" ||
+              url.username ||
+              url.password ||
+              url.pathname !== "/" ||
+              url.search ||
+              url.hash
+            ) {
+              throw new Error("GAME_SERVER_URL 必須是 HTTPS 網址來源，不可包含路徑、帳密、查詢參數或片段。");
+            }
+          '
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+        env:
+          VITE_GAME_SERVER_URL: ${{ vars.GAME_SERVER_URL }}
+          VITE_BASE: /${{ github.event.repository.name }}/
+      - name: Inject GA4 and SEO metadata
+        run: node scripts/inject-seo.mjs
+        env:
+          GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

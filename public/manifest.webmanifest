@@ -1,0 +1,26 @@
+{
+  "name": "冰壺對決 Ice Duel",
+  "short_name": "冰壺對決",
+  "description": "免費免下載的 3D 回合制冰壺，瞄準、投擲、掃冰改變壺的軌跡。單機三段 AI 難度，也能開房邀朋友線上對戰，手機平板觸控即可輕鬆玩。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1747c8",
+  "theme_color": "#1747c8",
+  "lang": "zh-Hant",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

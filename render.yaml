@@ -1,0 +1,16 @@
+# Render Blueprint：線上對戰伺服器（Node + WebSocket）。區域固定為新加坡。
+services:
+  - type: web
+    name: ice-duel-server
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm ci
+    startCommand: npx tsx server/index.ts
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: GAME_ALLOWED_ORIGIN
+        # 填入你的 GitHub Pages 網址（只要網域，不含路徑），例如 https://你的帳號.github.io
+        sync: false
