@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://pjh-eric.github.io/ice-duel/sitemap.xml
+Sitemap: https://pjh-eric.github.io/curling-duel/sitemap.xml

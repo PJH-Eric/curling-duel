@@ -508,3 +508,40 @@ button.card:hover { border-color: var(--focus); }
 /* 計分板標題（含任務名稱）：單行、過長以省略號收尾，不再斷成兩行 */
 .sb-tab { max-width: 100%; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 620px) { .sb-tab { font-size: 15px; padding: 3px 28px 3px 12px; white-space: normal; line-height: 1.15; text-wrap: balance; } }
+
+/* 首頁大廳入口與頂列控制項共用排版空間，不覆蓋標題或設定。 */
+.topbar .brand { flex: 0 1 auto; min-width: 0; }
+.topbar .spacer { min-width: 0; }
+.topbar > .langmenu, .topbar > .icon-btn { flex: 0 0 auto; }
+.home-lobby-link {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid rgba(235, 246, 255, .8);
+  border-radius: 999px;
+  background: rgba(9, 30, 78, .35);
+  box-shadow: 0 3px 0 rgba(6, 20, 58, .35);
+  color: #f4f9ff;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.home-lobby-link .icon { width: 18px; height: 18px; flex: none; }
+.home-lobby-link:hover { background: rgba(9, 30, 78, .58); }
+.home-lobby-link:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(6, 20, 58, .35); }
+.home-lobby-link:focus-visible { outline: 3px solid #ffe38a; outline-offset: 3px; }
+@media (max-width: 480px) {
+  .topbar { gap: 6px; padding-right: calc(var(--safe-r) + 8px); padding-left: calc(var(--safe-l) + 8px); }
+  .home-lobby-link { width: 44px; min-width: 44px; padding: 0; }
+  .home-lobby-label, .topbar .brand small { display: none; }
+  .brand { font-size: clamp(21px, 6.8vw, 28px); letter-spacing: 1px; }
+}
+@media (max-width: 320px) {
+  .topbar { gap: 4px; }
+  .brand { font-size: 21px; }
+}

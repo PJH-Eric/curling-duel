@@ -1,4 +1,5 @@
 import { MISSIONS } from '../core/missions'
+import seoConfig from '../../seo.config.json'
 import type { AiLevel } from '../core/ai'
 import type { GameKind, GameSetup } from '../core/game'
 import { getSettings, loadMissionStars, loadRecords, TEAM_COLORS, updateSettings, type CatStyle } from '../game/settings'
@@ -21,8 +22,12 @@ export interface MenuNav {
   startMission(id: number): void
 }
 
-function topbar(nav: MenuNav, opts: { back?: () => void; title?: Key } = {}): HTMLElement {
+function topbar(nav: MenuNav, opts: { back?: () => void; title?: Key; lobby?: boolean } = {}): HTMLElement {
+  const lobbyLink = opts.lobby
+    ? h('a', { class: 'home-lobby-link', attrs: { href: seoConfig.lobbyUrl, 'aria-label': t('home.lobby'), title: t('home.lobby') } }, icon('back'), h('span', { class: 'home-lobby-label', text: t('home.lobby') }))
+    : null
   return h('header', { class: 'topbar' },
+    lobbyLink,
     opts.back ? IconButton('back', t('common.back'), opts.back) : null,
     opts.title ? h('div', { class: 'brand' }, t(opts.title)) : h('div', { class: 'brand' }, t('app.title'), h('small', { text: t('app.subtitle') })),
     h('div', { class: 'spacer' }), LangMenu((l) => updateSettings({ lang: l })), IconButton('gear', t('common.settings'), () => nav.settings()))
@@ -52,7 +57,7 @@ export function homeScreen(nav: MenuNav): HTMLElement {
         btn('home.tutorial', 'home.tutorialDesc', 'target', () => nav.missions()))),
     h('div', { class: 'hero-art', attrs: { 'aria-hidden': 'true' } }, iceDuelArt()))
   const foot = h('div', { class: 'row home-foot', style: { marginTop: '14px' } }, Button({ label: t('home.howto'), icon: 'info', onClick: () => nav.howto() }), Button({ label: t('home.records'), icon: 'list', onClick: () => nav.records() }))
-  return screen(nav, topbar(nav), hero, foot)
+  return screen(nav, topbar(nav, { lobby: true }), hero, foot)
 }
 
 function iceDuelArt(): SVGSVGElement {

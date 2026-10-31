@@ -18,6 +18,13 @@ const page = '<html><head><title>x</title>\n<!--SEO:HEAD-->\n</head><body></body
 
 describe('SEO / GA4', () => {
   it('設定檔通過驗證', () => { expect(() => validate(cfg, 'G-PG79WZK8QY')).not.toThrow() })
+  it('GA4 page_location 使用 GitHub Pages 實際網址', () => {
+    const root = sandbox(page)
+    inject(root, {})
+    const html = readFileSync(join(root, 'dist', 'index.html'), 'utf8')
+    const config = JSON.parse(html.match(/window\.GAME_ANALYTICS_CONFIG=(\{[^<]+\});/)![1])
+    expect(config.page_location).toBe('https://pjh-eric.github.io/curling-duel/')
+  })
   it('注入 canonical / OG / JSON-LD / gtag 設定與 sitemap，且重複執行不累積', () => {
     const root = sandbox(page)
     inject(root, {})

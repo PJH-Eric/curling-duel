@@ -4,6 +4,7 @@ export const en: Dict = {
   'app.title': 'Ice Duel',
   'app.subtitle': 'Turn-based 3D Curling',
   'app.tagline': 'Aim, set the weight, sweep the stone into the house. Turn-based curling where lag never changes the result.',
+  'home.lobby': 'Back to Game Lobby',
   'common.back': 'Back',
   'common.close': 'Close',
   'common.confirm': 'OK',

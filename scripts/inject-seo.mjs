@@ -13,7 +13,8 @@ export function validate(cfg, gaId) {
   for (const key of ['id', 'siteUrl', 'title', 'description', 'lobbyUrl', 'genre', 'players']) {
     if (typeof cfg[key] !== 'string' || !cfg[key].trim()) throw new Error('seo.config.json 缺少欄位：' + key)
   }
-  if (!/^[a-z0-9-]+$/.test(cfg.id) || cfg.siteUrl !== 'https://pjh-eric.github.io/' + cfg.id + '/') {
+  // GitHub Pages repository slug can differ from the stable game_id after a repository rename.
+  if (!/^[a-z0-9-]+$/.test(cfg.id) || !/^https:\/\/pjh-eric\.github\.io\/[a-z0-9-]+\/$/.test(cfg.siteUrl)) {
     throw new Error('siteUrl 必須是遊戲自己的 HTTPS 網址，並以 / 結尾')
   }
   if (cfg.lobbyUrl !== 'https://pjh-eric.github.io/game-lobby/') throw new Error('lobbyUrl 格式錯誤')

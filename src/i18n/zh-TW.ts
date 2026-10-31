@@ -2,6 +2,7 @@ export const zh = {
   'app.title': '冰壺對決',
   'app.subtitle': '回合制 3D 冰壺',
   'app.tagline': '選目標、調力道、刷冰把壺送進圓心。網路延遲不影響勝負的回合制冰壺。',
+  'home.lobby': '回遊戲大廳',
   'common.back': '返回',
   'common.close': '關閉',
   'common.confirm': '確定',

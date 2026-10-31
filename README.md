@@ -74,7 +74,7 @@ blender/     Blender 腳本
 - 部署時由 `scripts/inject-seo.mjs` 在 `dist/index.html` 注入 canonical / Open Graph / Twitter Card / JSON-LD 與 GA4 設定，並產生 `dist/sitemap.xml`；`public/robots.txt` 指向該 sitemap。流程已寫進 `.github/workflows/deploy-pages.yml`（`npm run build` 之後）。
 - 衡量 ID 預設為與其他遊戲共用的 `G-PG79WZK8QY`；要改用別的，在 GitHub repo Variables 設定 `GA_MEASUREMENT_ID`。
 - 僅在 `pjh-eric.github.io` 網域載入 Google tag；本機、Render 預覽不會送資料。事件：`game_start`、`game_end`、`room_create`、`room_join`，只帶玩法、難度、模式、結果、秒數，不含暱稱或房號（見 `src/analytics.ts`）。
-- 本機試跑：`VITE_BASE=/ice-duel/ npm run build && npm run seo`。
+- 本機試跑：`VITE_BASE=/curling-duel/ npm run build && npm run seo`。
 - Search Console：取得驗證碼後填入 `seo.config.json` 的 `googleSiteVerification`（根網域 repo 已驗證時可留空）。
 
 ## 同一個 Wi-Fi 連線（區域網路）

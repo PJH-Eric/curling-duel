@@ -4,6 +4,7 @@ export const zhCN: Dict = {
   'app.title': '冰壶对决',
   'app.subtitle': '回合制 3D 冰壶',
   'app.tagline': '选目标、调力道、刷冰把壶送进圆心。网络延迟不影响胜负的回合制冰壶。',
+  'home.lobby': '返回游戏大厅',
   'common.back': '返回',
   'common.close': '关闭',
   'common.confirm': '确定',
