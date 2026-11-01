@@ -11,6 +11,3 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
-      - key: GAME_ALLOWED_ORIGIN
-        # 填入你的 GitHub Pages 網址（只要網域，不含路徑），例如 https://你的帳號.github.io
-        sync: false

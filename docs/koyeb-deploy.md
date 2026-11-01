@@ -21,7 +21,6 @@
 7. 環境變數新增：
    - `PORT` = `8000`
    - `NODE_VERSION` = `20`
-   - `GAME_ALLOWED_ORIGIN` = `https://pjh-eric.github.io`（只填網域，不含路徑）
 8. Instance 選免費方案（Free），Region 選亞洲最近的區域（例如新加坡）。
 9. 按下 Deploy，等待建置完成。
 
@@ -42,7 +41,7 @@
 3. 用另一台裝置（或無痕視窗）透過邀請連結加入，確認雙方都能看到對方。
 4. 重新整理一方頁面，確認可以重新連線。
 
-若 `/health` 無法連線，先看 Koyeb 的 Build 與 Runtime 日誌。若線上模式連不上，最常見原因是 `GAME_ALLOWED_ORIGIN` 與實際 Pages 網域不一致，或 `GAME_SERVER_URL` 仍指向舊網址並未重新部署。
+若 `/health` 無法連線，先看 Koyeb 的 Build 與 Runtime 日誌。伺服器預設允許官方 Pages 網域 `https://pjh-eric.github.io`，不必設定 `GAME_ALLOWED_ORIGIN`；若使用其他前端網域，再將它加入該變數。若線上模式連不上，也請確認 `GAME_SERVER_URL` 已指向目前的 Koyeb 網址並重新部署 Pages。
 
 ## 注意事項
 

@@ -24,9 +24,6 @@ services:
         value: "20"
       - name: PORT
         value: "8000"
-      # 只填網域（不含路徑）。GitHub Pages 的 origin 為 https://pjh-eric.github.io
-      - name: GAME_ALLOWED_ORIGIN
-        value: https://pjh-eric.github.io
     instance_type: free
     regions:
       - sin

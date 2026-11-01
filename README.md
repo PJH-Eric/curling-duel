@@ -33,14 +33,14 @@ Windows 可直接雙擊 `啟動遊戲.bat`。
 | --- | --- | --- |
 | `VITE_GAME_SERVER_URL` | 前端建置 | 啟用線上對戰時設定；GitHub 工作流程由倉庫變數 `GAME_SERVER_URL` 提供。未設定時仍可部署單機模式，線上模式會顯示「尚未設定伺服器網址」，不會偷偷連到 localhost。 |
 | `PORT` | 伺服器 | 預設 3090 |
-| `GAME_ALLOWED_ORIGIN` | 伺服器 | 允許連線的網頁來源，逗號分隔，例如 `https://帳號.github.io` |
+| `GAME_ALLOWED_ORIGIN` | 伺服器（選填） | 額外允許的網頁來源，逗號分隔。官方 Pages 網域 `https://pjh-eric.github.io` 已預設允許。 |
 
 複製 `.env.example` 為 `.env` 即可本機調整。**不要把任何 token 或密鑰寫進程式碼或提交進倉庫。**
 
 ## 部署（GitHub Pages）
 1. 在倉庫 Settings → Pages 將 Build and deployment 的 Source 設為「GitHub Actions」。
 2. 推送到 `main` 或 `master` 後，`.github/workflows/deploy-pages.yml` 會安裝 lockfile 指定的依賴、執行專案檢查、建置並部署到 Pages。未設定 `GAME_SERVER_URL` 時會部署單機模式；線上對戰會提示伺服器尚未設定。
-3. 要啟用線上對戰時，再以 `render.yaml` 建立 Render Blueprint（區域為 `singapore`），設定 `GAME_ALLOWED_ORIGIN` 為 GitHub Pages 網站來源網址；然後在 Settings → Secrets and variables → Actions → Variables 設定 `GAME_SERVER_URL` 為 Render 面板顯示的 HTTPS 網址來源（不含路徑）。這是公開網址，不是 secret；workflow 會驗證格式。免費方案閒置後會休眠，第一次連線可能要等約一分鐘。`GA_MEASUREMENT_ID` 可選，用來覆寫預設 GA4 ID。
+3. 要啟用線上對戰時，以 `render.yaml` 建立 Render Blueprint（區域為 `singapore`），不必設定 `GAME_ALLOWED_ORIGIN`；官方 Pages 網域已由伺服器預設允許。再到 Settings → Secrets and variables → Actions → Variables 設定 `GAME_SERVER_URL` 為 Render 面板顯示的 HTTPS 網址來源（不含路徑）。這是公開網址，不是 secret；workflow 會驗證格式。免費方案閒置後會休眠，第一次連線可能要等約一分鐘。`GA_MEASUREMENT_ID` 可選，用來覆寫預設 GA4 ID。
 4. workflow 使用 GitHub 內建 `GITHUB_TOKEN`，不需要建立或貼入 PAT。部署狀態與錯誤可在倉庫 Actions 頁面查看；回滾時還原到已知可用的 commit，再推送該變更。
 
 ## Blender 素材（選用）
@@ -81,7 +81,7 @@ blender/     Blender 腳本
 
 執行 `啟動遊戲.bat`（或 `npm run server` + `npm run dev`）時，視窗會列出本機的區域網路 IP，例如 `http://192.168.1.23:5173`。同一個 Wi-Fi 的手機、平板、其他電腦用瀏覽器開這個網址，就能在「線上對戰」建立或加入房間一起玩。
 
-- 沒設定 `GAME_ALLOWED_ORIGIN` 時，伺服器會自動放行私有網段（10.x、172.16–31.x、192.168.x）；正式部署請照常設定該變數，就不會放行。
+- 沒設定 `GAME_ALLOWED_ORIGIN` 時，伺服器會放行官方 Pages 網域及私有網段（10.x、172.16–31.x、192.168.x）。設定該變數可額外允許自訂網域；設定後不再自動放行私有網段。
 - 連不上時，請在 Windows 防火牆允許 Node.js 的「私人網路」連線（連接埠 3090、5173）。
 
 ## SEO 圖片

@@ -6,7 +6,11 @@ import { cleanName, Room, RoomHub, sanitizeConfig, type Conn } from './rooms'
 
 const PORT = Number(process.env.PORT ?? 3090)
 const ORIGIN_ENV = process.env.GAME_ALLOWED_ORIGIN
-const ORIGINS = (ORIGIN_ENV ?? 'http://localhost:5173').split(',').map((s) => s.trim()).filter(Boolean)
+const DEFAULT_ORIGINS = ['https://pjh-eric.github.io']
+const ORIGINS = [...new Set([
+  ...DEFAULT_ORIGINS,
+  ...(ORIGIN_ENV ?? 'http://localhost:5173').split(',').map((s) => s.trim()).filter(Boolean),
+])]
 // 沒有指定 GAME_ALLOWED_ORIGIN（本機／區域網路使用）時，額外放行同一個 Wi-Fi 內的私有網段，其他裝置才連得進來
 const PRIVATE_ORIGIN = /^https?:\/\/(localhost|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/
 
@@ -23,6 +27,7 @@ const hub = new RoomHub()
 
 function originOk(origin: string | undefined): boolean {
   if (!origin) return true // 非瀏覽器（測試腳本）
+  // 官方 GitHub Pages 網域固定放行；環境變數只用來擴充其他來源。
   return ORIGINS.includes('*') || ORIGINS.includes(origin) || (ORIGIN_ENV === undefined && PRIVATE_ORIGIN.test(origin))
 }
 
