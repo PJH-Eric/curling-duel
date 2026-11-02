@@ -1,10 +1,10 @@
-import { randomBytes } from 'node:crypto'
 import { chooseThrow, type AiLevel } from '../src/core/ai'
 import { advanceGame, createGame, isFinished, isRoundScored, playThrow, turnOf, type GameSetup, type GameState } from '../src/core/game'
 import { makeRng, type Rng } from '../src/core/rng'
 import { sanitizeTaps, solveThrow } from '../src/core/sim'
 import { SHEET, clamp, type ThrowSpec } from '../src/core/types'
 import type { ClientMsg, ErrCode, RoomConfig, RoomListItem, RoomPub, SeatPub, ServerMsg } from './protocol'
+import { randomBase64Url, randomBytes, randomHex, randomUint32 } from './rand'
 
 export interface Conn {
   send(msg: ServerMsg): void
@@ -153,7 +153,7 @@ export class Room {
         if (!seat) role = 'spectator'
       } else role = 'spectator'
       if (role === 'spectator' && [...this.members.values()].filter((x) => x.role === 'spectator').length >= this.config.maxSpectators) return { err: 'full' }
-      m = { pid: randomBytes(6).toString('hex'), sid, name: cleanName(name), conn, role, team: seat?.team ?? -1, player: seat?.player ?? -1, lastChat: 0, ready: false, offlineAt: null }
+      m = { pid: randomHex(6), sid, name: cleanName(name), conn, role, team: seat?.team ?? -1, player: seat?.player ?? -1, lastChat: 0, ready: false, offlineAt: null }
       this.members.set(m.pid, m)
       if (!this.hostPid || !this.members.has(this.hostPid)) this.hostPid = m.pid
       this.sys(`${m.name} +`)
@@ -168,9 +168,11 @@ export class Room {
     return { member: m }
   }
 
-  disconnect(pid: string): void {
+  /** 連線中斷。傳入 conn 時，只有「仍是目前這條連線」才算離線（避免舊連線的 close 事件把剛重連的人踢成離線）。 */
+  disconnect(pid: string, conn?: Conn): void {
     const m = this.members.get(pid)
     if (!m) return
+    if (conn && m.conn !== conn) return
     m.conn = null
     m.offlineAt = this.now()
     if (m.role === 'spectator' || this.phase === 'lobby') {
@@ -242,7 +244,7 @@ export class Room {
 
   /* ───── 邀請 ───── */
   createInvite(scope: 'player' | 'spectator'): Invite {
-    const inv: Invite = { token: randomBytes(12).toString('base64url'), scope, expires: this.now() + LIMITS.inviteTtlMs, revoked: false }
+    const inv: Invite = { token: randomBase64Url(12), scope, expires: this.now() + LIMITS.inviteTtlMs, revoked: false }
     this.invites.push(inv)
     return inv
   }
@@ -390,7 +392,7 @@ export class Room {
       }
     }
     if (![...this.members.values()].some((m) => m.role === 'player')) return
-    this.seed = (randomBytes(4).readUInt32BE() >>> 0) || 1
+    this.seed = randomUint32() || 1
     this.rng = makeRng(this.seed)
     this.g = createGame(this.config.setup)
     this.phase = 'playing'

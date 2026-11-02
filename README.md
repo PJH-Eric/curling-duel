@@ -40,7 +40,7 @@ Windows 可直接雙擊 `啟動遊戲.bat`。
 ## 部署（GitHub Pages）
 1. 在倉庫 Settings → Pages 將 Build and deployment 的 Source 設為「GitHub Actions」。
 2. 推送到 `main` 或 `master` 後，`.github/workflows/deploy-pages.yml` 會安裝 lockfile 指定的依賴、執行專案檢查、建置並部署到 Pages。未設定 `GAME_SERVER_URL` 時會部署單機模式；線上對戰會提示伺服器尚未設定。
-3. 要啟用線上對戰時，以 `render.yaml` 建立 Render Blueprint（區域為 `singapore`），不必設定 `GAME_ALLOWED_ORIGIN`；官方 Pages 網域已由伺服器預設允許。再到 Settings → Secrets and variables → Actions → Variables 設定 `GAME_SERVER_URL` 為 Render 面板顯示的 HTTPS 網址來源（不含路徑）。這是公開網址，不是 secret；workflow 會驗證格式。免費方案閒置後會休眠，第一次連線可能要等約一分鐘。`GA_MEASUREMENT_ID` 可選，用來覆寫預設 GA4 ID。
+3. 要啟用線上對戰時，後端為 Cloudflare Worker（Workers Builds 連 GitHub 自動部署，見 `docs/cloudflare-deploy.md`）。再到 Settings → Secrets and variables → Actions → Variables 設定 `GAME_SERVER_URL` 為 Worker 的 HTTPS 網址來源（`https://curling-duel.<子網域>.workers.dev`，不含路徑）。這是公開網址，不是 secret；workflow 會驗證格式。`GA_MEASUREMENT_ID` 可選，用來覆寫預設 GA4 ID。
 4. workflow 使用 GitHub 內建 `GITHUB_TOKEN`，不需要建立或貼入 PAT。部署狀態與錯誤可在倉庫 Actions 頁面查看；回滾時還原到已知可用的 commit，再推送該變更。
 
 ## Blender 素材（選用）
@@ -62,7 +62,8 @@ src/core     規則、物理、AI（前後端共用，確定性）
 src/scene    Three.js 場景、模型、特效
 src/screens  畫面（首頁、設定、大廳、房間、對局）
 src/game     後端介面（單機／線上）、設定
-server/      Node + ws 伺服器
+server/      房間與訊息路由（Node 本機伺服器 + 共用邏輯）
+worker/      Cloudflare Worker + Durable Object 入口
 tests/       vitest
 scripts/     AI 對戰與線上端到端檢查
 blender/     Blender 腳本

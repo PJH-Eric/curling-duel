@@ -1,0 +1,22 @@
+# Cloudflare Worker：冰壺對決線上對戰後端（WebSocket + Durable Object）。
+# 部署：Cloudflare 後台 Workers Builds 連 GitHub，push 到 main 自動執行 npx wrangler deploy；Worker 名稱必須與後台一致（curling-duel）。
+name = "curling-duel"
+main = "worker/index.ts"
+compatibility_date = "2025-06-01"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "GameHub"
+
+# 免費方案的 Durable Object 必須使用 SQLite 儲存後端（本專案不使用儲存，只用記憶體）
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameHub"]
+
+[vars]
+# 額外允許的前端網域（逗號分隔）。官方 Pages 網域 https://pjh-eric.github.io 已由程式固定放行。
+GAME_ALLOWED_ORIGIN = ""
+
+[observability]
+enabled = true

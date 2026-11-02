@@ -13,7 +13,11 @@
     "start": "npm run build && tsx server/index.ts",
     "test": "vitest run",
     "verify": "npm run test && tsx scripts/ai-match.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json",
+    "typecheck:worker": "tsc -p tsconfig.worker.json",
+    "worker:dev": "wrangler dev --port 3090 --var ALLOW_PRIVATE_ORIGINS:1",
+    "worker:deploy": "wrangler deploy",
+    "worker:check": "tsx scripts/online-check.ts ws://localhost:3090"
   },
   "dependencies": {
     "three": "0.160.0",
@@ -26,6 +30,8 @@
   "devDependencies": {
     "@types/three": "0.160.0",
     "vite": "^5.4.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "wrangler": "^4.0.0",
+    "@cloudflare/workers-types": "^5.20261101.1"
   }
 }
