@@ -15,10 +15,10 @@ export interface AiChoice {
 }
 
 /** 各難度：執行誤差、搜尋範圍、是否規劃掃冰、是否預判對手回應。 */
-export const AI_PROFILE: Record<AiLevel, { angleSigma: number; powerSigma: number; density: number; sweep: 'none' | 'sloppy' | 'plan'; lookahead: boolean; topPick: number }> = {
-  easy: { angleSigma: 0.013, powerSigma: 0.055, density: 0.15, sweep: 'sloppy', lookahead: false, topPick: 6 },
-  normal: { angleSigma: 0.005, powerSigma: 0.022, density: 0.5, sweep: 'plan', lookahead: false, topPick: 2 },
-  hard: { angleSigma: 0.0012, powerSigma: 0.006, density: 1, sweep: 'plan', lookahead: true, topPick: 1 },
+export const AI_PROFILE: Record<AiLevel, { angleSigma: number; powerSigma: number; density: number; sweep: 'none' | 'sloppy' | 'plan'; lookahead: boolean; topPick: number; takeoutPenalty: number }> = {
+  easy: { angleSigma: 0.013, powerSigma: 0.055, density: 0.15, sweep: 'sloppy', lookahead: false, topPick: 6, takeoutPenalty: 8 },
+  normal: { angleSigma: 0.005, powerSigma: 0.022, density: 0.5, sweep: 'plan', lookahead: false, topPick: 2, takeoutPenalty: 6 },
+  hard: { angleSigma: 0.0012, powerSigma: 0.006, density: 1, sweep: 'plan', lookahead: true, topPick: 1, takeoutPenalty: 5 },
 }
 
 const solveCache = new Map<string, ThrowSpec>()
@@ -197,10 +197,14 @@ export function chooseThrow(g: GameState, level: AiLevel, rng: Rng): AiChoice {
   const score = scorerFor(g)
   const k = 'k' in g ? g.k : 0
   const ctx: Ctx = { g, team: turn.team, stoneId: turn.stoneId, stones: g.stones, opts: simOptsOf(g), k }
-  const cands = [...drawCandidates(ctx, prof.density), ...takeoutCandidates(ctx, prof.density)]
+  const draws = drawCandidates(ctx, prof.density)
+  const takeouts = new Set(takeoutCandidates(ctx, prof.density))
+  const cands = [...draws, ...takeouts]
   const scored = cands.map((spec) => {
     const r = runOutcome(ctx, spec, [])
     let v = score(r.stones, ctx.team, k + 1, { sinkPoints: r.sink })
+    // 盡量不要硬撞：撞擊要有明顯好處（例如對手佔著得分位置）才值得，否則優先走位放壺、守護或輕碰
+    if (takeouts.has(spec)) v -= prof.takeoutPenalty
     // 冰洞：自己得分已在 sink；其他模式略微偏好穩定的力道（避免出界）
     v += (spec.power > 0.97 ? -0.2 : 0)
     return { spec, v, time: r.time, stones: r.stones }
