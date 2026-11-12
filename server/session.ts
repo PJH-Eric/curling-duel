@@ -1,6 +1,7 @@
 /** 與平台無關的連線層：Node（ws）與 Cloudflare Worker（Durable Object）共用同一份訊息路由。 */
 import type { ClientMsg, ErrCode, ServerMsg } from './protocol'
 import { cleanName, sanitizeConfig, type Conn, type Room, type RoomHub } from './rooms'
+import { LobbyChat } from './lobbychat'
 
 export const DEFAULT_ORIGINS = ['https://pjh-eric.github.io']
 export const MAX_PAYLOAD = 32 * 1024
@@ -24,18 +25,31 @@ export interface Session {
   pid: string
   room: Room | null
   conn: Conn
+  /** 大廳聊天用的連線代號（每條連線一個） */
+  cid: string
   msgs: number
   windowStart: number
 }
 
 export class Gateway {
-  constructor(readonly hub: RoomHub, private now: () => number = Date.now) {}
+  /** 大廳聊天室（與房間聊天分開；最近 50 則只存在記憶體） */
+  readonly lobbyChat: LobbyChat
+  private conns = new Map<string, Conn>()
+  private seq = 0
+
+  constructor(readonly hub: RoomHub, private now: () => number = Date.now) {
+    this.lobbyChat = new LobbyChat((id, msg) => this.conns.get(id)?.send(msg), now)
+  }
 
   open(conn: Conn): Session {
-    return { sid: '', name: 'Guest', pid: '', room: null, conn, msgs: 0, windowStart: this.now() }
+    const cid = 'c' + (++this.seq)
+    this.conns.set(cid, conn)
+    return { sid: '', name: 'Guest', pid: '', room: null, conn, cid, msgs: 0, windowStart: this.now() }
   }
 
   close(s: Session): void {
+    this.lobbyChat.drop(s.cid)
+    this.conns.delete(s.cid)
     if (s.room && s.pid) s.room.disconnect(s.pid, s.conn)
   }
 
@@ -75,6 +89,8 @@ export class Gateway {
         return
       case 'ping':
         return send({ t: 'pong', n: Number(msg.n) || 0 })
+      case 'lobbychat':
+        return this.lobbyChat.handle(s.cid, msg)
       case 'list':
         return send({ t: 'rooms', rooms: hub.list() })
       case 'peek': {
@@ -94,6 +110,7 @@ export class Gateway {
         if ('err' in r) return err(r.err)
         s.room = room
         s.pid = r.member.pid
+        if (room.config.public) this.lobbyChat.roomOpened({ code: room.code, host: r.member.name })
         return
       }
       case 'join': {

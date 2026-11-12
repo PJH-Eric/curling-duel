@@ -559,3 +559,12 @@ button.card:hover { border-color: var(--focus); }
   .topbar { gap: 4px; }
   .brand { font-size: 21px; }
 }
+
+/* ---------- 大廳聊天室：套用冰壺對決配色 ---------- */
+body .lc-root {
+  --lc-accent: var(--lane); --lc-accent-ink: #fff;
+  --lc-panel-bg: var(--ice); --lc-panel-solid: var(--ice);
+  --lc-ink: var(--ink); --lc-muted: #56607e; --lc-line: var(--ice-2);
+  --lc-field-bg: #fff; --lc-sys-bg: var(--ice-2); --lc-name: var(--lane);
+  --lc-z: 45;
+}

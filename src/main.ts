@@ -18,6 +18,8 @@ import { OnlineBackend } from './game/online'
 import { errText, inviteScreen, lobbyScreen, roomScreen, defaultRoomConfig } from './screens/online'
 import type { RoomListItem, RoomPub, ServerMsg } from '../server/protocol'
 import { updateSettings } from './game/settings'
+import { createLobbyChat } from './net/lobbychat'
+import { setLobbyChatUI } from './screens/settings'
 import type { GameSetup as GS, GameState } from './core/game'
 
 loadSettings()
@@ -35,6 +37,7 @@ function show(build: () => HTMLElement, screen?: string): void {
     app.replaceChildren(build())
   }
   rerender()
+  lobbyChat?.refresh()
 }
 
 const nav: MenuNav = {
@@ -85,6 +88,15 @@ let lobbyState: { connecting: boolean; failed: boolean } = { connecting: false, 
 let inviteState: { code: string; token: string; host?: string; error?: string; checking: boolean } | null = null
 
 const nick = () => getSettings().nickname.trim() || 'Guest'
+
+/* 線上大廳聊天室（左下氣泡）：只在大廳畫面出現，跟房間聊天分開 */
+const lobbyChat = createLobbyChat(net, {
+  active: () => mode === 'lobby',
+  getName: () => getSettings().nickname.trim(),
+  setName: (n) => { updateSettings({ nickname: n.slice(0, 16) }); if (mode === 'lobby') renderLobby() },
+  joinRoom: (code) => { pendingRoom = 'join'; net.roomCode = code.toUpperCase(); void net.connect(nick()).then(() => net.send({ t: 'join', code, name: nick() })) },
+})
+setLobbyChatUI(lobbyChat)
 
 async function enterLobby(): Promise<void> {
   if (!serverHttpUrl()) return void toast(t('online.noServer'), 'warn')

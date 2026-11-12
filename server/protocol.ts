@@ -1,3 +1,4 @@
+import type { LobbyChatIn, LobbyChatOut } from './lobbychat'
 import type { AiLevel } from '../src/core/ai'
 import type { GameSetup, GameState, ThrowRecord } from '../src/core/game'
 import type { ThrowSpec } from '../src/core/types'
@@ -65,8 +66,10 @@ export type ClientMsg =
   | { t: 'revoke' }
   | { t: 'leave' }
   | { t: 'ping'; n: number }
+  | LobbyChatIn
 
 export type ServerMsg =
+  | LobbyChatOut
   | { t: 'welcome'; pid: string }
   | { t: 'rooms'; rooms: RoomListItem[] }
   | { t: 'peek'; ok: boolean; reason?: ErrCode; code?: string; host?: string; role?: 'player' | 'spectator' }

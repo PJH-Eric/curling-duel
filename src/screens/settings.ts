@@ -3,6 +3,11 @@ import { audio } from '../audio/engine'
 import { t } from '../i18n'
 import { h } from '../ui/dom'
 import { Button, openModal, Segmented, Slider, toast, Toggle, type ModalHandle } from '../ui/kit'
+import type { LobbyChatUI } from '../net/lobbychat'
+
+/** 大廳聊天室元件（main.ts 建好後交進來），設定視窗用它畫開關 */
+let lobbyChat: LobbyChatUI | null = null
+export function setLobbyChatUI(c: LobbyChatUI | null): void { lobbyChat = c }
 
 /** 設定視窗：音樂與音效分開、減少動態、色彩輔助、語言等；變更立即生效並保存。 */
 export function openSettings(): ModalHandle {
@@ -17,13 +22,14 @@ export function openSettings(): ModalHandle {
       Toggle({ label: t('settings.reduce'), hint: t('settings.reduceHint'), value: s.reduceMotion, onChange: (v) => updateSettings({ reduceMotion: v }) }),
       Toggle({ label: t('settings.colorAssist'), value: s.colorAssist, onChange: (v) => updateSettings({ colorAssist: v }) }),
       Toggle({ label: t('settings.haptics'), value: s.haptics, onChange: (v) => updateSettings({ haptics: v }) }),
+      ...(lobbyChat ? [Toggle({ label: lobbyChat.text('set'), hint: lobbyChat.text('setSub'), value: lobbyChat.isEnabled(), onChange: (v) => lobbyChat?.setEnabled(v) })] : []),
       Segmented({ label: t('settings.replaySpeed'), value: s.replaySpeed, options: [{ value: 1, label: '1×' }, { value: 2, label: '2×' }, { value: 3, label: '3×' }], onChange: (v) => updateSettings({ replaySpeed: v }) }),
       Segmented({ label: t('settings.camera'), value: s.cameraFollow ? 'follow' : 'fixed', options: [{ value: 'follow', label: t('settings.camera.follow') }, { value: 'fixed', label: t('settings.camera.fixed') }], onChange: (v) => updateSettings({ cameraFollow: v === 'follow' }) }),
       h('div', { class: 'stack' }, h('b', { text: t('settings.controls') }), h('div', { class: 'muted', text: t('settings.keys') }), h('div', { class: 'muted', text: t('settings.touch') })),
     )
   }
   render()
-  const footer = h('div', { class: 'row' }, Button({ label: t('common.reset'), variant: 'secondary', onClick: () => { resetSettings(); toast(t('settings.restored'), 'ok'); modal.close(); openSettings() } }))
+  const footer = h('div', { class: 'row' }, Button({ label: t('common.reset'), variant: 'secondary', onClick: () => { resetSettings(); lobbyChat?.setEnabled(true); toast(t('settings.restored'), 'ok'); modal.close(); openSettings() } }))
   const modal = openModal({ title: t('settings.title'), body, footer, closeLabel: t('common.close'), width: 'md' })
   return modal
 }
