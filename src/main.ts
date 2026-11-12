@@ -15,7 +15,7 @@ import { initAnalytics, pageView, track } from './analytics'
 import { NetClient } from './net/client'
 import { serverHttpUrl } from './net/config'
 import { OnlineBackend } from './game/online'
-import { errText, inviteScreen, lobbyScreen, roomScreen, defaultRoomConfig } from './screens/online'
+import { errText, inviteScreen, lobbyScreen, roomList, roomScreen, defaultRoomConfig } from './screens/online'
 import type { RoomListItem, RoomPub, ServerMsg } from '../server/protocol'
 import { updateSettings } from './game/settings'
 import { createLobbyChat } from './net/lobbychat'
@@ -110,11 +110,18 @@ async function enterLobby(): Promise<void> {
   renderLobby()
 }
 
+function lobbyJoin(code: string): void {
+  if (!code) return
+  pendingRoom = 'join'
+  net.roomCode = code.toUpperCase()
+  void net.connect(nick()).then(() => net.send({ t: 'join', code, name: nick() }))
+}
+
 function renderLobby(): void {
   pageView('lobby')
   show(() => lobbyScreen(nav, net, (n) => updateSettings({ nickname: n }), {
     create: (cfg) => { pendingRoom = 'create'; void net.connect(nick()).then(() => net.send({ t: 'create', name: nick(), config: cfg })) },
-    join: (code) => { if (!code) return; pendingRoom = 'join'; net.roomCode = code.toUpperCase(); void net.connect(nick()).then(() => net.send({ t: 'join', code, name: nick() })) },
+    join: lobbyJoin,
     refresh: () => void enterLobby(),
     back: () => { net.close(); mode = 'menu'; nav.home() },
   }, rooms, lobbyState.connecting, lobbyState.failed))
@@ -149,10 +156,15 @@ function mountOnline(g: GameState, setup: GS): void {
 
 net.on((m: ServerMsg) => {
   switch (m.t) {
-    case 'rooms':
+    case 'rooms': {
       rooms = m.rooms
-      if (mode === 'lobby') renderLobby()
+      if (mode !== 'lobby') break
+      /* 伺服器主動推的新列表：只換房間列表那一塊，不重畫整頁（輸入到一半的暱稱、房號不會不見） */
+      const box = document.querySelector('.lobby-rooms')
+      if (box && !lobbyState.connecting) box.replaceChildren(roomList(rooms, lobbyJoin))
+      else renderLobby()
       break
+    }
     case 'room': {
       if (pendingRoom) { track(`room_${pendingRoom}`, { mode: 'online', via: pendingVia }); pendingRoom = null; pendingVia = 'lobby' }
       curRoom = { room: m.room, you: m.you }

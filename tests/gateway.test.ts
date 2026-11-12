@@ -29,6 +29,35 @@ describe('Gateway（Node 與 Cloudflare Worker 共用的訊息路由）', () => 
     expect(b.msgs.some((m) => m.t === 'room' && m.you.role === 'player' && m.you.team === 1)).toBe(true)
   })
 
+  it('停在大廳的人不用重新整理：有人開房、加入、離開時主動收到新房間列表', () => {
+    const g = new Gateway(new RoomHub())
+    const a = conn(), b = conn(), w = conn()
+    const sa = g.open(a), sb = g.open(b), sw = g.open(w)
+    send(g, sw, { t: 'hello', sid: 'sw', name: 'W' })
+    send(g, sw, { t: 'list' })
+    const lists = () => w.msgs.filter((m) => m.t === 'rooms') as Extract<ServerMsg, { t: 'rooms' }>[]
+    expect(lists().at(-1)!.rooms).toHaveLength(0)
+    send(g, sa, { t: 'hello', sid: 'sa', name: 'A' })
+    send(g, sa, { t: 'create', name: 'A', config: cfg })
+    const code = lists().at(-1)!.rooms[0].code
+    expect(lists().at(-1)!.rooms[0].players).toBe(1)
+    send(g, sb, { t: 'hello', sid: 'sb', name: 'B' })
+    send(g, sb, { t: 'join', code, name: 'B' })
+    expect(lists().at(-1)!.rooms[0].players).toBe(2)
+    const before = lists().length
+    send(g, sb, { t: 'ping', n: 1 })
+    expect(lists().length).toBe(before)   // 沒變化就不重送
+    send(g, sa, { t: 'leave' })
+    send(g, sb, { t: 'leave' })
+    expect(lists().at(-1)!.rooms).toHaveLength(0)
+    // 進了房間的人不再收大廳列表
+    send(g, sw, { t: 'create', name: 'W', config: cfg })
+    const n = a.msgs.filter((m) => m.t === 'rooms').length
+    send(g, sa, { t: 'create', name: 'A', config: cfg })
+    expect(w.msgs.filter((m) => m.t === 'rooms').length).toBe(lists().length)
+    expect(a.msgs.filter((m) => m.t === 'rooms').length).toBe(n)
+  })
+
   it('未 hello 不能建房；壞 JSON、過大訊息、缺 t 欄位都回 invalid', () => {
     const g = new Gateway(new RoomHub())
     const c = conn()

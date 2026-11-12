@@ -36,6 +36,9 @@ export class Gateway {
   readonly lobbyChat: LobbyChat
   private conns = new Map<string, Conn>()
   private seq = 0
+  /** 停在大廳看房間列表的連線：房間一有變化就主動推新列表，不用按「重新整理」 */
+  private watchers = new Set<Session>()
+  private lastList = ''
 
   constructor(readonly hub: RoomHub, private now: () => number = Date.now) {
     this.lobbyChat = new LobbyChat((id, msg) => this.conns.get(id)?.send(msg), now)
@@ -50,7 +53,23 @@ export class Gateway {
   close(s: Session): void {
     this.lobbyChat.drop(s.cid)
     this.conns.delete(s.cid)
+    this.watchers.delete(s)
     if (s.room && s.pid) s.room.disconnect(s.pid, s.conn)
+    this.pushRooms()
+  }
+
+  /** 房間列表有變化才推給大廳的人（訊息處理後、斷線後、以及伺服器每秒的 tick 都會檢查一次） */
+  pushRooms(): void {
+    const rooms = this.hub.list()
+    const key = JSON.stringify(rooms)
+    if (key === this.lastList) return
+    this.lastList = key
+    for (const w of this.watchers) w.conn.send({ t: 'rooms', rooms })
+  }
+
+  /** 由伺服器計時器呼叫：處理倒數、斷線逾時等不是由訊息觸發的房間變化 */
+  tick(): void {
+    if (this.watchers.size) this.pushRooms()
   }
 
   /** 處理一則原始文字訊息（含頻率限制與大小限制）。 */
@@ -76,6 +95,7 @@ export class Gateway {
       console.error('handler error', e)
       err('invalid')
     }
+    if (msg.t !== 'ping' && msg.t !== 'lobbychat') this.pushRooms()
   }
 
   private route(s: Session, msg: ClientMsg, err: (c: ErrCode) => void): void {
@@ -92,6 +112,7 @@ export class Gateway {
       case 'lobbychat':
         return this.lobbyChat.handle(s.cid, msg)
       case 'list':
+        this.watchers.add(s)
         return send({ t: 'rooms', rooms: hub.list() })
       case 'peek': {
         const room = hub.get(msg.code)
@@ -110,6 +131,7 @@ export class Gateway {
         if ('err' in r) return err(r.err)
         s.room = room
         s.pid = r.member.pid
+        this.watchers.delete(s)
         if (room.config.public) this.lobbyChat.roomOpened({ code: room.code, host: r.member.name })
         return
       }
@@ -133,6 +155,7 @@ export class Gateway {
         if ('err' in r) return err(r.err)
         s.room = room
         s.pid = r.member.pid
+        this.watchers.delete(s)
         return
       }
       default:

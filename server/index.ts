@@ -23,6 +23,8 @@ function lanAddresses(): string[] {
 
 const hub = new RoomHub()
 const gateway = new Gateway(hub)
+/* 房間狀態也會因倒數、斷線逾時改變：每秒檢查一次，有變化才推新的房間列表給大廳 */
+setInterval(() => gateway.tick(), 1000).unref()
 
 const http = createServer((req, res) => {
   const origin = req.headers.origin

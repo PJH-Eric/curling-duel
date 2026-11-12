@@ -43,6 +43,13 @@ export function defaultRoomConfig(): RoomConfig {
 }
 
 /** 大廳：暱稱、建立房間、房號加入、公開房間列表。 */
+/** 公開房間列表；伺服器推新列表時只換這一塊，暱稱與房號輸入框不受影響 */
+export function roomList(rooms: RoomListItem[], join: (code: string) => void): HTMLElement {
+  return rooms.length === 0 ? h('div', { class: 'empty card', style: { clipPath: 'none', minHeight: '0' }, text: t('online.noRooms') }) : h('div', { class: 'stack' }, ...rooms.map((r) => h('div', { class: 'room-row' },
+    h('div', { class: 'grow' }, h('b', { text: `${r.code} · ${t(`mode.${r.kind}` as Key)}` }), h('div', { class: 'muted', text: `${r.host} · ${r.players}/${r.capacity} · ${t('common.spectator')} ${r.spectators}` })),
+    Button({ label: r.phase === 'lobby' ? t('online.join') : t('common.spectator'), variant: 'primary', onClick: () => join(r.code) }))))
+}
+
 export function lobbyScreen(nav: MenuNav, net: NetClient, onNick: (n: string) => void, actions: { create(cfg: RoomConfig): void; join(code: string): void; refresh(): void; back(): void }, rooms: RoomListItem[], connecting: boolean, failed: boolean): HTMLElement {
   let nick = getSettings().nickname
   const fallbackName = t('online.defaultName', { n: String(1000 + Math.floor(Math.random() * 9000)) })
@@ -50,9 +57,7 @@ export function lobbyScreen(nav: MenuNav, net: NetClient, onNick: (n: string) =>
   const nameField = TextField({ label: t('online.nickname'), value: nick, maxLength: 12, placeholder: fallbackName, onInput: (v) => { nick = v; onNick(v) } })
   let code = ''
   const codeField = TextField({ label: t('online.joinCode'), maxLength: 5, onInput: (v) => { code = v.toUpperCase() }, onEnter: () => actions.join(code) })
-  const list = rooms.length === 0 ? h('div', { class: 'empty card', style: { clipPath: 'none', minHeight: '0' }, text: t('online.noRooms') }) : h('div', { class: 'stack' }, ...rooms.map((r) => h('div', { class: 'room-row' },
-    h('div', { class: 'grow' }, h('b', { text: `${r.code} · ${t(`mode.${r.kind}` as Key)}` }), h('div', { class: 'muted', text: `${r.host} · ${r.players}/${r.capacity} · ${t('common.spectator')} ${r.spectators}` })),
-    Button({ label: r.phase === 'lobby' ? t('online.join') : t('common.spectator'), variant: 'primary', onClick: () => actions.join(r.code) }))))
+  const list = h('div', { class: 'lobby-rooms' }, roomList(rooms, actions.join))
   const status = connecting ? h('div', { class: 'loading', style: { position: 'static', background: 'none' } }, h('div', {}, h('div', { class: 'spinner' }), h('div', { text: t('online.waking') }))) : failed ? h('div', { class: 'card', style: { clipPath: 'none' } }, h('b', { text: t('online.failed') }), Button({ label: t('common.retry'), onClick: () => actions.refresh() })) : null
   const body = h('div', { class: 'stack' }, status,
     h('div', { class: 'grid grid-2' },
