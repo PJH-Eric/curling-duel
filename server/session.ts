@@ -32,7 +32,7 @@ export interface Session {
 }
 
 export class Gateway {
-  /** 大廳聊天室（與房間聊天分開；最近 50 則只存在記憶體） */
+  /** 大廳聊天室（與房間聊天分開；即時傳送訊息，不載入歷史訊息） */
   readonly lobbyChat: LobbyChat
   private conns = new Map<string, Conn>()
   private seq = 0

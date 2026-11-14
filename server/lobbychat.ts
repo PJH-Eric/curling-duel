@@ -1,7 +1,7 @@
 /**
  * 大廳聊天室伺服器核心（TypeScript 版，與 Node／Cloudflare Worker 共用）。
  * 規則與其他小遊戲的 lib/lobby-chat.js 相同：
- *   - 每款遊戲一個大廳頻道，與房間聊天完全分開；最近 50 則只存在記憶體
+ *   - 每款遊戲一個大廳頻道，與房間聊天完全分開；新連線只收到空白訊息清單
  *   - 每則最多 60 字；不雅字詞換成＊；同一人連續送出相同內容會被擋
  *   - 系統訊息只有「某某開了新房間」（附房號，前端顯示「加入」）；私人房不公告
  *   - 送給每個人的版本不同：自己說的話帶 mine:true（前端在暱稱後加「（我）」）
@@ -28,7 +28,6 @@ export type LobbyChatOut =
 
 export type LobbyChatIn = { t: 'lobbychat'; op: 'join' | 'leave' | 'send'; name?: string; text?: string }
 
-const MAX_HISTORY = 50
 const MAX_LEN = 60
 const NAME_LEN = 16
 
@@ -59,7 +58,6 @@ export function cleanText(input: unknown, max: number): string {
 const cleanName = (input: unknown, fallback?: string) => censor(cleanText(input, NAME_LEN)) || fallback || 'Player'
 
 export class LobbyChat {
-  private history: Stored[] = []
   private seq = 0
   private people = new Map<string, { name: string; last: string }>()
   constructor(private send: (id: string, msg: LobbyChatOut) => void, private now: () => number = Date.now) {}
@@ -67,11 +65,6 @@ export class LobbyChat {
   private view(m: Stored, viewer: string): LobbyChatMsg {
     const { from, ...rest } = m
     return from != null && from === viewer ? { ...rest, mine: true } : rest
-  }
-  private push(m: Stored): Stored {
-    this.history.push(m)
-    if (this.history.length > MAX_HISTORY) this.history.splice(0, this.history.length - MAX_HISTORY)
-    return m
   }
   private fanout(m: Stored): void {
     for (const id of this.people.keys()) this.send(id, { t: 'lobbychat', op: 'msg', msg: this.view(m, id) })
@@ -86,7 +79,7 @@ export class LobbyChat {
       const p = this.people.get(id)
       if (p) p.name = cleanName(m.name, p.name)
       else this.people.set(id, { name: cleanName(m.name), last: '' })
-      this.send(id, { t: 'lobbychat', op: 'history', history: this.history.map((x) => this.view(x, id)), online: this.people.size })
+      this.send(id, { t: 'lobbychat', op: 'history', history: [], online: this.people.size })
       this.bcastOnline()
     } else if (m.op === 'leave') {
       this.drop(id)
@@ -101,7 +94,7 @@ export class LobbyChat {
       const norm = raw.toLowerCase().replace(/\s+/g, '')
       if (norm === p.last) return err('dup')
       p.last = norm
-      this.fanout(this.push({ id: ++this.seq, kind: 'msg', name: p.name, text: censor(raw), ts: this.now(), from: id }))
+      this.fanout({ id: ++this.seq, kind: 'msg', name: p.name, text: censor(raw), ts: this.now(), from: id })
     }
   }
 
@@ -112,6 +105,6 @@ export class LobbyChat {
   /** 公開房間建立時呼叫；私人房間不公告 */
   roomOpened(info: { code: string; roomName?: string; host: string; isPrivate?: boolean }): void {
     if (info.isPrivate || !info.code) return
-    this.fanout(this.push({ id: ++this.seq, kind: 'room', name: cleanName(info.host), room: censor(cleanText(info.roomName ?? '', 24)), code: String(info.code).slice(0, 32), ts: this.now() }))
+    this.fanout({ id: ++this.seq, kind: 'room', name: cleanName(info.host), room: censor(cleanText(info.roomName ?? '', 24)), code: String(info.code).slice(0, 32), ts: this.now() })
   }
 }
