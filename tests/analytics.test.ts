@@ -8,7 +8,7 @@ afterEach(() => {
 it('queues Google tag commands as Arguments objects with the correct page identity', async () => {
   const browser = {
     GAME_ANALYTICS_CONFIG: {
-      measurement_id: 'G-PG79WZK8QY', game_id: 'ice-duel',
+      measurement_id: 'G-PG79WZK8QY', game_id: 'curling-duel',
       page_location: 'https://pjh-eric.github.io/curling-duel/',
     },
     dataLayer: [] as IArguments[],
@@ -27,7 +27,7 @@ it('queues Google tag commands as Arguments objects with the correct page identi
     expect(Object.prototype.toString.call(command)).toBe('[object Arguments]')
   }
   expect(Array.from(browser.dataLayer[2])).toEqual(['event', 'page_view', {
-    game_id: 'ice-duel', page_location: 'https://pjh-eric.github.io/curling-duel/#/home',
+    game_id: 'curling-duel', page_location: 'https://pjh-eric.github.io/curling-duel/#/home',
     page_referrer: '', page_title: '冰壺對決 - home', screen_name: 'home',
   }])
 })
