@@ -136,7 +136,10 @@ function renderRoom(): void {
     room, you, chat: chatLog, invite: inviteInfo, net,
     leave: () => { net.send({ t: 'leave' }); net.roomCode = null; curRoom = null; chatLog = []; inviteInfo = null; void enterLobby() },
     copyInvite: (u) => { void navigator.clipboard?.writeText(u).then(() => toast(t('common.copied'), 'ok'), () => toast(u)) },
-    inviteUrl: (tok) => `${location.origin}${location.pathname}?room=${room.code}&invite=${encodeURIComponent(tok)}`,
+    inviteUrl: (tok) => {
+      const address = `${location.origin}${location.pathname}?room=${room.code}&invite=${encodeURIComponent(tok)}`
+      return window.GameBackend?.pinInvite(address) ?? address
+    },
   }))
 }
 

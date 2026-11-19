@@ -2,6 +2,15 @@ import type { ClientMsg, ServerMsg } from '../../server/protocol'
 import { storageGet, storageSet } from '../game/settings'
 import { serverWsUrl } from './config'
 
+declare global {
+  interface Window {
+    GameBackend?: {
+      createSocket(address: string): WebSocket
+      pinInvite(address: string): string
+    }
+  }
+}
+
 export type NetStatus = 'idle' | 'connecting' | 'online' | 'reconnecting' | 'offline'
 
 function sid(): string {
@@ -61,7 +70,7 @@ export class NetClient {
     this.setStatus(this.retry > 0 ? 'reconnecting' : 'connecting')
     let ws: WebSocket
     try {
-      ws = new WebSocket(url)
+      ws = window.GameBackend?.createSocket(url) ?? new WebSocket(url)
     } catch {
       this.fail()
       return
