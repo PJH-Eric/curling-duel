@@ -19,6 +19,7 @@ import { errText, inviteScreen, lobbyScreen, roomList, roomScreen, defaultRoomCo
 import type { RoomListItem, RoomPub, ServerMsg } from '../server/protocol'
 import { updateSettings } from './game/settings'
 import { createLobbyChat } from './net/lobbychat'
+import { mountOutageNotice } from './ui/outage'
 import { setLobbyChatUI } from './screens/settings'
 import type { GameSetup as GS, GameState } from './core/game'
 
@@ -97,6 +98,7 @@ const lobbyChat = createLobbyChat(net, {
   joinRoom: (code) => { pendingRoom = 'join'; net.roomCode = code.toUpperCase(); void net.connect(nick()).then(() => net.send({ t: 'join', code, name: nick() })) },
 })
 setLobbyChatUI(lobbyChat)
+mountOutageNotice(net, () => mode === 'lobby' || mode === 'invite' || mode === 'room')
 
 async function enterLobby(): Promise<void> {
   if (!serverHttpUrl()) return void toast(t('online.noServer'), 'warn')
