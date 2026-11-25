@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createOutageWatcher, OUTAGE_WAIT_MS } from '../src/net/outage'
 import { en } from '../src/i18n/en'
@@ -55,5 +57,13 @@ describe('伺服器暫停提示', () => {
     expect(zh['outage.body']).toBe('歡迎贊助升級')
     expect(zhCN['outage.title']).toBe('目前服务器过载休息中')
     expect(en['outage.body']).toBe('Sponsorships to help us upgrade are welcome')
+  })
+})
+
+describe('贊助連結', () => {
+  it('提示文字中的「贊助」連到贊助頁', () => {
+    const src = readFileSync(join(process.cwd(), 'src/ui/outage.ts'), 'utf8')
+    expect(src).toContain('https://portaly.cc/pjh-eric/support')
+    expect(src).toContain("'zh-TW': '贊助'")
   })
 })
