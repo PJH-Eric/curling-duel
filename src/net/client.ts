@@ -1,15 +1,6 @@
 import type { ClientMsg, ServerMsg } from '../../server/protocol'
 import { storageGet, storageSet } from '../game/settings'
-import { serverHttpUrl, serverWsUrl } from './config'
-
-declare global {
-  interface Window {
-    GameBackend?: {
-      createSocket(address: string): WebSocket
-      pinInvite(address: string): string
-    }
-  }
-}
+import { selectBackend, serverHttpUrl, serverWsUrl, type Backend } from './config'
 
 export type NetStatus = 'idle' | 'connecting' | 'online' | 'reconnecting' | 'offline'
 type RoomRequest = Extract<ClientMsg, { t: 'create' | 'join' | 'peek' }>
@@ -27,6 +18,9 @@ function sid(): string {
 export class NetClient {
   private ws: WebSocket | null = null
   private address: string | null = null
+  private backend: Backend | null = null
+  private selection: Promise<Backend> | null = null
+  private inLobby = false
   private retryTimer: number | null = null
   private roomRouting = false
   private action = 0
@@ -55,27 +49,41 @@ export class NetClient {
     this.statusHandlers.forEach((f) => f(s, this.ping))
   }
 
-  /** 連線。免費主機睡眠時可能要等約一分鐘，所以逾時較長。 */
-  connect(name: string): Promise<boolean> {
-    ++this.action
-    return this.connectTo(name, serverWsUrl())
+  private chooseBackend(): Promise<Backend> | null {
+    const origin = serverHttpUrl()
+    if (!origin) return null
+    this.selection ??= selectBackend(origin, new URL(location.href))
+    return this.selection
+  }
+
+  async connect(name: string): Promise<boolean> {
+    const action = ++this.action
+    const backend = await this.chooseBackend()
+    if (!backend || this.action !== action) return false
+    this.backend = backend
+    this.inLobby = true
+    return this.connectTo(name, serverWsUrl(backend))
   }
 
   async requestRoom(name: string, message: RoomRequest): Promise<boolean> {
     const action = ++this.action
-    const origin = serverHttpUrl()
-    if (!origin) return false
+    const backend = await this.chooseBackend()
+    if (!backend || this.action !== action) return false
+    this.backend = backend
+    this.inLobby = false
+    const { origin } = backend
     let code = message.t === 'create' ? undefined : message.code
     let reservation: string | undefined
-    if (!this.roomRouting) {
+    if (backend.roomRouting === undefined) {
       try {
         const response = await fetch(new URL('/room-reservations', origin), { signal: AbortSignal.timeout(3000) })
         if (response.ok && response.headers.get('Content-Type')?.includes('application/json')) {
-          this.roomRouting = (await response.json()).roomRouting === true
+          backend.roomRouting = (await response.json()).roomRouting === true
         }
       } catch { /* 本機 Node 伺服器沿用既有連線方式。 */ }
     }
     if (this.action !== action) return false
+    this.roomRouting = backend.roomRouting === true
     if (this.roomRouting && message.t === 'create') {
       try {
         const response = await fetch(new URL('/room-reservations', origin), { method: 'POST', signal: AbortSignal.timeout(5000) })
@@ -91,7 +99,7 @@ export class NetClient {
       } catch { return false }
     }
     if (this.action !== action) return false
-    const ok = await this.connectTo(name, this.roomRouting ? serverWsUrl(code, reservation) : serverWsUrl())
+    const ok = await this.connectTo(name, this.roomRouting ? serverWsUrl(backend, code, reservation) : serverWsUrl(backend))
     if (!ok || this.action !== action) return false
     this.send(message)
     return true
@@ -99,12 +107,18 @@ export class NetClient {
 
   confirmRoom(code: string): void {
     this.roomCode = code
-    if (this.roomRouting) this.address = serverWsUrl(code)
+    if (this.roomRouting && this.backend) this.address = serverWsUrl(this.backend, code)
   }
 
-  private connectTo(name: string, url: string | null): Promise<boolean> {
+  pinInvite(address: string): string {
+    if (!this.backend?.id) return address
+    const url = new URL(address)
+    url.searchParams.set('backend', this.backend.id)
+    return url.href
+  }
+
+  private connectTo(name: string, url: string): Promise<boolean> {
     this.name = name
-    if (!url) return Promise.resolve(false)
     if (this.address !== url) {
       this.stopSocket()
       this.address = url
@@ -124,7 +138,7 @@ export class NetClient {
     this.setStatus(this.retry > 0 ? 'reconnecting' : 'connecting')
     let ws: WebSocket
     try {
-      ws = window.GameBackend?.createSocket(url) ?? new WebSocket(url)
+      ws = new WebSocket(url)
     } catch {
       this.fail()
       return
@@ -137,6 +151,7 @@ export class NetClient {
       this.retry = 0
       this.send({ t: 'hello', sid: sid(), name: this.name })
       if (this.roomCode) this.send({ t: 'join', code: this.roomCode, name: this.name })
+      else if (this.inLobby && !this.openWaiters.length) this.send({ t: 'list' })
       this.setStatus('online')
       this.openWaiters.splice(0).forEach((f) => f(true))
       this.startPing()
@@ -167,6 +182,14 @@ export class NetClient {
   }
 
   private fail(): void {
+    const standby = this.inLobby && !this.roomCode ? this.backend?.fallback : undefined
+    if (standby) {
+      this.backend = standby
+      this.selection = Promise.resolve(standby)
+      this.address = serverWsUrl(standby)
+      this.open(this.address)
+      return
+    }
     this.retry += 1
     if (this.retry > 6) {
       this.setStatus('offline')
@@ -214,6 +237,10 @@ export class NetClient {
     this.wantOpen = false
     this.roomCode = null
     this.address = null
+    this.backend = null
+    this.selection = null
+    this.inLobby = false
+    this.roomRouting = false
     this.stopSocket()
   }
 }

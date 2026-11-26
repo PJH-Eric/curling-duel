@@ -1,6 +1,6 @@
 # 後端部署：Cloudflare Worker
 
-線上後端使用 Cloudflare Worker 與 Durable Objects。瀏覽器依房號選擇 WebSocket 路由，沿用原有訊息格式。
+正式網頁優先連到主服務，主服務無法建立 WebSocket 時切到 Cloudflare Worker。Cloudflare 連線依房號選擇 Durable Object，沿用原有 WebSocket 訊息格式。
 
 ## 架構
 
@@ -17,7 +17,7 @@
 
 ## 前端連線
 
-部署成功後取得網址 `https://curling-duel.<帳號子網域>.workers.dev`，到 GitHub repo → Settings → Secrets and variables → Actions → Variables，把 `GAME_SERVER_URL` 改成該網址（僅 origin，不含路徑），再重新執行 Pages 部署。用戶端會自動把 `https` 換成 `wss`。
+GitHub Actions 變數 `GAME_SERVER_URL` 填寫主服務的 HTTPS origin。備援 Worker 網址集中在 `src/net/config.ts`。正式頁先測主服務的 WebSocket，失敗會切到備援。建房與邀請連結都使用同一台後端，房間重連也回該後端。
 
 首次切換房間 DO 時，前端可先發布。新版前端會探測 Worker 是否已支援按房號分流。新版 Worker 上線後，已開著舊前端的玩家需要重新整理並開新房。
 

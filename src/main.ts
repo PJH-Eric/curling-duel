@@ -158,7 +158,7 @@ function renderRoom(): void {
     copyInvite: (u) => { void navigator.clipboard?.writeText(u).then(() => toast(t('common.copied'), 'ok'), () => toast(u)) },
     inviteUrl: (tok) => {
       const address = `${location.origin}${location.pathname}?room=${room.code}&invite=${encodeURIComponent(tok)}`
-      return window.GameBackend?.pinInvite(address) ?? address
+      return net.pinInvite(address)
     },
   }))
 }

@@ -1,3 +1,14 @@
+const PAGES_ORIGIN = 'https://pjh-eric.github.io'
+const BACKUP_ORIGIN = 'https://curling-duel.eric-games.workers.dev'
+
+export type BackendId = 'primary' | 'cloudflare'
+export interface Backend {
+  origin: string
+  id?: BackendId
+  roomRouting?: boolean
+  fallback?: Backend
+}
+
 /** 伺服器網址的唯一來源：建置時由 VITE_GAME_SERVER_URL 注入（GitHub Pages 工作流程以 GAME_SERVER_URL 變數提供）。 */
 export function serverHttpUrl(): string | null {
   const raw = (import.meta.env.VITE_GAME_SERVER_URL as string | undefined)?.trim()
@@ -18,11 +29,37 @@ function validate(u: string): string | null {
   }
 }
 
-export function serverWsUrl(room?: string, reservation?: string): string | null {
-  const http = serverHttpUrl()
-  if (!http) return null
-  const url = new URL(http.replace(/^http/, 'ws'))
+export function serverWsUrl(backend: Backend, room?: string, reservation?: string): string {
+  const url = new URL(backend.origin.replace(/^http/, 'ws'))
   if (room) url.searchParams.set('room', room.toUpperCase())
   if (reservation) url.searchParams.set('reservation', reservation)
   return url.href
+}
+
+function canConnect(backend: Backend): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const socket = new WebSocket(serverWsUrl(backend))
+    const finish = (ok: boolean) => {
+      window.clearTimeout(timeout)
+      socket.onopen = socket.onerror = socket.onclose = null
+      socket.close()
+      resolve(ok)
+    }
+    const timeout = window.setTimeout(() => finish(false), 4500)
+    socket.onopen = () => finish(true)
+    socket.onerror = socket.onclose = () => finish(false)
+  }).catch(() => false)
+}
+
+export async function selectBackend(origin: string, page: URL, probe = canConnect): Promise<Backend> {
+  const primary: Backend = { origin, roomRouting: new URL(origin).hostname.endsWith('.onrender.com') ? false : undefined }
+  if (page.origin !== PAGES_ORIGIN) return primary
+
+  const backup: Backend = { origin: BACKUP_ORIGIN, id: 'cloudflare', roomRouting: true }
+  if (origin === BACKUP_ORIGIN) return backup
+  primary.id = 'primary'
+  const pinned = page.searchParams.get('backend')
+  if (pinned === 'cloudflare') return backup
+  if (pinned === 'primary' || pinned === 'render') return primary
+  return await probe(primary) ? { ...primary, fallback: backup } : backup
 }
