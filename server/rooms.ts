@@ -66,7 +66,8 @@ export class Room {
   private advanceVotes = new Set<string>()
   private advanceTimer: Timer | null = null
 
-  constructor(code: string, config: RoomConfig, private onClose: (code: string) => void, private now: () => number = Date.now) {
+  constructor(code: string, config: RoomConfig, private onClose: (code: string) => void, private now: () => number = Date.now,
+    private onChange?: () => void) {
     this.code = code
     this.config = sanitizeConfig(config)
   }
@@ -123,6 +124,7 @@ export class Room {
   }
   sendRoom(): void {
     for (const m of this.members.values()) m.conn?.send({ t: 'room', room: this.pub(), you: { pid: m.pid, role: m.role, team: m.team, player: m.player } })
+    this.onChange?.()
   }
 
   /* ───── 進出 ───── */
@@ -516,17 +518,18 @@ export function sanitizeConfig(c: RoomConfig): RoomConfig {
   }
 }
 
+const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+export const ROOM_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{5}$/
+export const randomRoomCode = (): string => Array.from(randomBytes(5), (b) => ROOM_CODE_CHARS[b % ROOM_CODE_CHARS.length]).join('')
+
 /** 房間管理員：建立、查詢、列表。 */
 export class RoomHub {
   rooms = new Map<string, Room>()
-  constructor(private now: () => number = Date.now) {}
+  constructor(private now: () => number = Date.now, private fixed?: { code: string; changed: () => void }) {}
 
   private genCode(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
     for (let i = 0; i < 50; i++) {
-      let c = ''
-      const b = randomBytes(5)
-      for (let k = 0; k < 5; k++) c += chars[b[k] % chars.length]
+      const c = randomRoomCode()
       if (!this.rooms.has(c)) return c
     }
     throw new Error('no code')
@@ -534,8 +537,12 @@ export class RoomHub {
 
   create(config: RoomConfig): Room | null {
     if (this.rooms.size >= LIMITS.rooms) return null
-    const code = this.genCode()
-    const room = new Room(code, config, (c) => this.rooms.delete(c), this.now)
+    const code = this.fixed?.code ?? this.genCode()
+    if (this.rooms.has(code)) return null
+    const room = new Room(code, config, (c) => {
+      this.rooms.delete(c)
+      this.fixed?.changed()
+    }, this.now, this.fixed?.changed)
     this.rooms.set(code, room)
     return room
   }

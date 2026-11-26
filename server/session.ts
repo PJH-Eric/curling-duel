@@ -31,6 +31,12 @@ export interface Session {
   windowStart: number
 }
 
+interface GatewayOptions {
+  listRooms?: () => ReturnType<RoomHub['list']>
+  canCreate?: (session: Session) => boolean
+  roomOpened?: (room: { code: string; host: string }) => void
+}
+
 export class Gateway {
   /** 大廳聊天室（與房間聊天分開；即時傳送訊息，不載入歷史訊息） */
   readonly lobbyChat: LobbyChat
@@ -40,9 +46,13 @@ export class Gateway {
   private watchers = new Set<Session>()
   private lastList = ''
 
-  constructor(readonly hub: RoomHub, private now: () => number = Date.now) {
+  constructor(readonly hub: RoomHub, private now: () => number = Date.now, private options: GatewayOptions = {}) {
     this.lobbyChat = new LobbyChat((id, msg) => this.conns.get(id)?.send(msg), now)
   }
+
+  private listRooms() { return this.options.listRooms?.() ?? this.hub.list() }
+
+  announceRoom(room: { code: string; host: string }): void { this.lobbyChat.roomOpened(room) }
 
   open(conn: Conn): Session {
     const cid = 'c' + (++this.seq)
@@ -60,7 +70,7 @@ export class Gateway {
 
   /** 房間列表有變化才推給大廳的人（訊息處理後、斷線後、以及伺服器每秒的 tick 都會檢查一次） */
   pushRooms(): void {
-    const rooms = this.hub.list()
+    const rooms = this.listRooms()
     const key = JSON.stringify(rooms)
     if (key === this.lastList) return
     this.lastList = key
@@ -113,7 +123,7 @@ export class Gateway {
         return this.lobbyChat.handle(s.cid, msg)
       case 'list':
         this.watchers.add(s)
-        return send({ t: 'rooms', rooms: hub.list() })
+        return send({ t: 'rooms', rooms: this.listRooms() })
       case 'peek': {
         const room = hub.get(msg.code)
         if (!room || room.closed) return send({ t: 'peek', ok: false, reason: 'notFound' })
@@ -124,6 +134,7 @@ export class Gateway {
       }
       case 'create': {
         if (!s.sid) return err('invalid')
+        if (this.options.canCreate && !this.options.canCreate(s)) return err('forbidden')
         if (s.room) s.room.leave(s.pid)
         const room = hub.create(sanitizeConfig(msg.config))
         if (!room) return err('full')
@@ -132,7 +143,11 @@ export class Gateway {
         s.room = room
         s.pid = r.member.pid
         this.watchers.delete(s)
-        if (room.config.public) this.lobbyChat.roomOpened({ code: room.code, host: r.member.name })
+        if (room.config.public) {
+          const opened = { code: room.code, host: r.member.name }
+          if (this.options.roomOpened) this.options.roomOpened(opened)
+          else this.announceRoom(opened)
+        }
         return
       }
       case 'join': {

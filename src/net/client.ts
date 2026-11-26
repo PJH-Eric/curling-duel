@@ -1,6 +1,6 @@
 import type { ClientMsg, ServerMsg } from '../../server/protocol'
 import { storageGet, storageSet } from '../game/settings'
-import { serverWsUrl } from './config'
+import { serverHttpUrl, serverWsUrl } from './config'
 
 declare global {
   interface Window {
@@ -12,6 +12,7 @@ declare global {
 }
 
 export type NetStatus = 'idle' | 'connecting' | 'online' | 'reconnecting' | 'offline'
+type RoomRequest = Extract<ClientMsg, { t: 'create' | 'join' | 'peek' }>
 
 function sid(): string {
   let s = storageGet('iceduel.sid')
@@ -25,6 +26,10 @@ function sid(): string {
 /** WebSocket 連線：自動重連、心跳、重連後重新加入房間。 */
 export class NetClient {
   private ws: WebSocket | null = null
+  private address: string | null = null
+  private retryTimer: number | null = null
+  private roomRouting = false
+  private action = 0
   private handlers = new Set<(m: ServerMsg) => void>()
   private statusHandlers = new Set<(s: NetStatus, ping: number) => void>()
   status: NetStatus = 'idle'
@@ -52,9 +57,58 @@ export class NetClient {
 
   /** 連線。免費主機睡眠時可能要等約一分鐘，所以逾時較長。 */
   connect(name: string): Promise<boolean> {
+    ++this.action
+    return this.connectTo(name, serverWsUrl())
+  }
+
+  async requestRoom(name: string, message: RoomRequest): Promise<boolean> {
+    const action = ++this.action
+    const origin = serverHttpUrl()
+    if (!origin) return false
+    let code = message.t === 'create' ? undefined : message.code
+    let reservation: string | undefined
+    if (!this.roomRouting) {
+      try {
+        const response = await fetch(new URL('/room-reservations', origin), { signal: AbortSignal.timeout(3000) })
+        if (response.ok && response.headers.get('Content-Type')?.includes('application/json')) {
+          this.roomRouting = (await response.json()).roomRouting === true
+        }
+      } catch { /* 本機 Node 伺服器沿用既有連線方式。 */ }
+    }
+    if (this.action !== action) return false
+    if (this.roomRouting && message.t === 'create') {
+      try {
+        const response = await fetch(new URL('/room-reservations', origin), { method: 'POST', signal: AbortSignal.timeout(5000) })
+        if (this.action !== action) return false
+        if (response.status === 409) {
+          this.handlers.forEach((fn) => fn({ t: 'error', code: 'full' }))
+          return true
+        }
+        if (!response.ok) return false
+        const room = await response.json() as { code: string; token: string }
+        code = room.code
+        reservation = room.token
+      } catch { return false }
+    }
+    if (this.action !== action) return false
+    const ok = await this.connectTo(name, this.roomRouting ? serverWsUrl(code, reservation) : serverWsUrl())
+    if (!ok || this.action !== action) return false
+    this.send(message)
+    return true
+  }
+
+  confirmRoom(code: string): void {
+    this.roomCode = code
+    if (this.roomRouting) this.address = serverWsUrl(code)
+  }
+
+  private connectTo(name: string, url: string | null): Promise<boolean> {
     this.name = name
-    const url = serverWsUrl()
     if (!url) return Promise.resolve(false)
+    if (this.address !== url) {
+      this.stopSocket()
+      this.address = url
+    }
     if (this.status === 'online') {
       this.send({ t: 'hello', sid: sid(), name })
       return Promise.resolve(true)
@@ -62,7 +116,7 @@ export class NetClient {
     this.wantOpen = true
     return new Promise((res) => {
       this.openWaiters.push(res)
-      if (this.status !== 'connecting' && this.status !== 'reconnecting') this.open(url)
+      if (!this.ws && this.retryTimer === null) this.open(url)
     })
   }
 
@@ -79,6 +133,7 @@ export class NetClient {
     const timeout = window.setTimeout(() => ws.close(), 70_000)
     ws.onopen = () => {
       window.clearTimeout(timeout)
+      if (this.ws !== ws) return
       this.retry = 0
       this.send({ t: 'hello', sid: sid(), name: this.name })
       if (this.roomCode) this.send({ t: 'join', code: this.roomCode, name: this.name })
@@ -87,6 +142,7 @@ export class NetClient {
       this.startPing()
     }
     ws.onmessage = (e) => {
+      if (this.ws !== ws) return
       let m: ServerMsg
       try {
         m = JSON.parse(String(e.data)) as ServerMsg
@@ -102,8 +158,9 @@ export class NetClient {
     }
     ws.onclose = () => {
       window.clearTimeout(timeout)
+      if (this.ws !== ws) return
       this.stopPing()
-      if (this.ws === ws) this.ws = null
+      this.ws = null
       if (this.wantOpen) this.fail()
     }
     ws.onerror = () => undefined
@@ -118,8 +175,10 @@ export class NetClient {
       return
     }
     this.setStatus('reconnecting')
-    const url = serverWsUrl()
-    if (url) window.setTimeout(() => this.wantOpen && this.open(url), Math.min(8000, 800 * this.retry))
+    this.retryTimer = window.setTimeout(() => {
+      this.retryTimer = null
+      if (this.wantOpen && this.address) this.open(this.address)
+    }, Math.min(8000, 800 * this.retry))
   }
 
   private startPing(): void {
@@ -138,12 +197,23 @@ export class NetClient {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(m))
   }
 
-  close(): void {
-    this.wantOpen = false
-    this.roomCode = null
+  private stopSocket(): void {
     this.stopPing()
+    if (this.retryTimer !== null) window.clearTimeout(this.retryTimer)
+    this.retryTimer = null
+    this.openWaiters.splice(0).forEach((resolve) => resolve(false))
     this.ws?.close()
     this.ws = null
+    this.retry = 0
+    this.ping = 0
     this.setStatus('idle')
+  }
+
+  close(): void {
+    ++this.action
+    this.wantOpen = false
+    this.roomCode = null
+    this.address = null
+    this.stopSocket()
   }
 }

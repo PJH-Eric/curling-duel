@@ -18,7 +18,11 @@ function validate(u: string): string | null {
   }
 }
 
-export function serverWsUrl(): string | null {
+export function serverWsUrl(room?: string, reservation?: string): string | null {
   const http = serverHttpUrl()
-  return http ? http.replace(/^http/, 'ws') : null
+  if (!http) return null
+  const url = new URL(http.replace(/^http/, 'ws'))
+  if (room) url.searchParams.set('room', room.toUpperCase())
+  if (reservation) url.searchParams.set('reservation', reservation)
+  return url.href
 }

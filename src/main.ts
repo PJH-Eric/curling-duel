@@ -95,7 +95,7 @@ const lobbyChat = createLobbyChat(net, {
   active: () => mode === 'lobby',
   getName: () => getSettings().nickname.trim(),
   setName: (n) => { updateSettings({ nickname: n.slice(0, 16) }); if (mode === 'lobby') renderLobby() },
-  joinRoom: (code) => { pendingRoom = 'join'; net.roomCode = code.toUpperCase(); void net.connect(nick()).then(() => net.send({ t: 'join', code, name: nick() })) },
+  joinRoom: lobbyJoin,
 })
 setLobbyChatUI(lobbyChat)
 mountOutageNotice(net, () => mode === 'lobby' || mode === 'invite' || mode === 'room')
@@ -113,19 +113,37 @@ async function enterLobby(): Promise<void> {
 }
 
 function lobbyJoin(code: string): void {
-  if (!code) return
+  if (!code || pendingRoom) return
   pendingRoom = 'join'
-  net.roomCode = code.toUpperCase()
-  void net.connect(nick()).then(() => net.send({ t: 'join', code, name: nick() }))
+  const name = nick()
+  void net.requestRoom(name, { t: 'join', code, name }).then(handleRoomConnection)
+}
+
+function handleRoomConnection(ok: boolean): void {
+  if (ok || !pendingRoom) return
+  pendingRoom = null
+  pendingVia = 'lobby'
+  if (mode === 'lobby') {
+    toast(t('online.failed'), 'warn')
+    void enterLobby()
+  } else if (mode === 'invite' && inviteState) {
+    inviteState = { ...inviteState, error: t('online.failed'), checking: false }
+    renderInvite()
+  }
 }
 
 function renderLobby(): void {
   pageView('lobby')
   show(() => lobbyScreen(nav, net, (n) => updateSettings({ nickname: n }), {
-    create: (cfg) => { pendingRoom = 'create'; void net.connect(nick()).then(() => net.send({ t: 'create', name: nick(), config: cfg })) },
+    create: (config) => {
+      if (pendingRoom) return
+      const name = nick()
+      pendingRoom = 'create'
+      void net.requestRoom(name, { t: 'create', name, config }).then(handleRoomConnection)
+    },
     join: lobbyJoin,
     refresh: () => void enterLobby(),
-    back: () => { net.close(); mode = 'menu'; nav.home() },
+    back: () => { pendingRoom = null; net.close(); mode = 'menu'; nav.home() },
   }, rooms, lobbyState.connecting, lobbyState.failed))
 }
 
@@ -173,7 +191,7 @@ net.on((m: ServerMsg) => {
     case 'room': {
       if (pendingRoom) { track(`room_${pendingRoom}`, { mode: 'online', via: pendingVia }); pendingRoom = null; pendingVia = 'lobby' }
       curRoom = { room: m.room, you: m.you }
-      net.roomCode = m.room.code
+      net.confirmRoom(m.room.code)
       if (mode === 'invite') history.replaceState(null, '', location.pathname)
       if (m.room.phase === 'lobby') renderRoom()
       break
@@ -211,9 +229,18 @@ net.on((m: ServerMsg) => {
       chatLog = []
       void enterLobby()
       break
-    case 'error':
+    case 'error': {
+      const restoreLobby = (mode === 'lobby' && pendingRoom) || (net.roomCode && m.code === 'notFound')
+      pendingRoom = null
+      pendingVia = 'lobby'
+      if (restoreLobby) {
+        net.roomCode = null
+        curRoom = null
+        void enterLobby()
+      }
       if (mode === 'invite' && inviteState) { inviteState = { ...inviteState, error: errText(m.code), checking: false }; renderInvite() } else toast(errText(m.code), 'warn')
       break
+    }
     case 'peek':
       if (inviteState) {
         inviteState = m.ok ? { ...inviteState, host: m.host, checking: false } : { ...inviteState, error: errText(m.reason ?? 'invalid'), checking: false }
@@ -231,20 +258,23 @@ function renderInvite(): void {
   const st = inviteState
   pageView('invite')
   show(() => inviteScreen(nav, st, (name) => {
+    if (pendingRoom) return
     updateSettings({ nickname: name })
     net.roomCode = null
     pendingRoom = 'join'; pendingVia = 'invite_link'
-    void net.connect(name).then(() => net.send({ t: 'join', code: st.code, name, invite: st.token }))
-  }, () => { history.replaceState(null, '', location.pathname); inviteState = null; net.close(); mode = 'menu'; nav.home() }))
+    void net.requestRoom(name, { t: 'join', code: st.code, name, invite: st.token }).then(handleRoomConnection)
+  }, () => { history.replaceState(null, '', location.pathname); inviteState = null; pendingRoom = null; net.close(); mode = 'menu'; nav.home() }))
 }
 
 async function handleInviteUrl(code: string, token: string): Promise<void> {
   if (!serverHttpUrl()) return void nav.home()
   inviteState = { code, token, checking: true }
   renderInvite()
-  const ok = await net.connect(nick())
-  if (!ok) { inviteState = { code, token, checking: false, error: t('online.failed') }; renderInvite(); return }
-  net.send({ t: 'peek', code, invite: token })
+  const ok = await net.requestRoom(nick(), { t: 'peek', code, invite: token })
+  if (!ok && inviteState?.code === code && inviteState.token === token) {
+    inviteState = { code, token, checking: false, error: t('online.failed') }
+    renderInvite()
+  }
 }
 void defaultRoomConfig
 initAnalytics()

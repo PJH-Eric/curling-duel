@@ -2,7 +2,9 @@
 import WebSocket from 'ws'
 import type { ClientMsg, ServerMsg } from '../server/protocol'
 
-const URL = process.argv[2] ?? 'ws://localhost:3090'
+const endpoint = process.argv[2] ?? 'ws://localhost:3090'
+const reservations = new URL('/room-reservations', endpoint.replace(/^ws/, 'http'))
+let roomRouting = false
 let failed = 0
 const ok = (c: boolean, label: string) => {
   console.log(`${c ? 'PASS' : 'FAIL'}  ${label}`)
@@ -16,8 +18,14 @@ class Cli {
   role = ''
   team = -1
   player = -1
-  constructor(public sid: string, public name: string) {
-    this.ws = new WebSocket(URL)
+  constructor(public sid: string, public name: string, code?: string, reservation?: string) {
+    const url = new URL(endpoint)
+    if (roomRouting && code) url.searchParams.set('room', code)
+    if (reservation) url.searchParams.set('reservation', reservation)
+    this.ws = new WebSocket(url)
+    if (roomRouting) this.ws.on('upgrade', ({ headers }) => {
+      ok(/^\d+\.\d$/.test(String(headers['x-do-rtt-ms'])) && !!headers['x-edge-colo'], `WebSocket ${name} 回應包含延遲標頭`)
+    })
     this.ws.on('message', (d) => {
       const m = JSON.parse(String(d)) as ServerMsg
       this.msgs.push(m)
@@ -30,7 +38,10 @@ class Cli {
     })
   }
   open() {
-    return new Promise<void>((res) => this.ws.on('open', () => { this.send({ t: 'hello', sid: this.sid, name: this.name }); res() }))
+    return new Promise<void>((res, reject) => {
+      this.ws.once('error', reject)
+      this.ws.once('open', () => { this.send({ t: 'hello', sid: this.sid, name: this.name }); res() })
+    })
   }
   send(m: ClientMsg) { this.ws.send(JSON.stringify(m)) }
   async wait(pred: (m: ServerMsg) => boolean, ms = 8000): Promise<ServerMsg | null> {
@@ -47,21 +58,55 @@ class Cli {
 
 const cfg = { setup: { kind: 'standard' as const, playersPerTeam: 1 as const, timerSec: 45, standard: { stonesPerTeam: 8, ends: 1 } }, level: 'easy' as const, public: false, maxSpectators: 5 }
 
+async function reserve(): Promise<{ code?: string; token?: string }> {
+  if (!roomRouting) return {}
+  const response = await fetch(reservations, { method: 'POST' })
+  ok(response.ok && response.headers.has('x-do-rtt-ms') && response.headers.has('x-edge-colo'), '房號預留回應包含延遲標頭')
+  return await response.json()
+}
+
 async function main() {
-  const host = new Cli('sid-host', 'Host'); await host.open()
+  const capability = await fetch(reservations)
+  roomRouting = capability.ok && !!capability.headers.get('Content-Type')?.includes('application/json') && (await capability.json()).roomRouting === true
+  if (roomRouting) {
+    const health = await fetch(new URL('/health', reservations))
+    ok(health.ok && health.headers.has('x-do-rtt-ms') && health.headers.has('x-edge-colo'), '健康檢查包含延遲標頭')
+  }
+
+  const hold = await reserve()
+  const host = new Cli('sid-host', 'Host', hold.code, hold.token); await host.open()
   host.send({ t: 'create', name: 'Host', config: cfg })
   const r1 = await host.wait((m) => m.t === 'room')
   ok(!!r1, '建立房間')
   const code = host.last('room')!.room.code
   ok(host.last('room')!.room.config.public === false, '私人房')
+  if (roomRouting) ok(code === hold.code, '房間使用預留房號')
 
-  const stranger = new Cli('sid-x', 'X'); await stranger.open()
+  const watcher = new Cli('sid-watch', 'Watcher'); await watcher.open()
+  watcher.send({ t: 'list' })
+  const second = await reserve()
+  const otherRoom = new Cli('sid-other', 'Other', second.code, second.token); await otherRoom.open()
+  otherRoom.send({ t: 'create', name: 'Other', config: { ...cfg, public: true } })
+  await otherRoom.wait((m) => m.t === 'room')
+  const otherCode = otherRoom.last('room')!.room.code
+  ok(otherCode !== code, '同時建立兩個不同房間')
+  ok(!!await watcher.wait((m) => m.t === 'rooms' && m.rooms.some((room) => room.code === otherCode) && !m.rooms.some((room) => room.code === code)), '公開房推送到大廳，私人房不出現在列表')
+  if (roomRouting) {
+    otherRoom.send({ t: 'join', code, name: 'Other' })
+    ok(!!await otherRoom.wait((m) => m.t === 'error' && m.code === 'notFound'), '房間 WebSocket 不可轉入另一個房間 DO')
+  }
+  otherRoom.send({ t: 'leave' })
+  const removed = await watcher.wait((m) => m.t === 'rooms' && m.rooms.length === 0 && watcher.msgs.indexOf(m) > watcher.msgs.findIndex((item) => item.t === 'rooms' && item.rooms.some((room) => room.code === otherCode)))
+  ok(!!removed, '關房後大廳移除房間')
+  otherRoom.ws.close(); watcher.ws.close()
+
+  const stranger = new Cli('sid-x', 'X', code); await stranger.open()
   stranger.send({ t: 'join', code, name: 'X' })
   ok(!!(await stranger.wait((m) => m.t === 'error' && m.code === 'private')), '沒有邀請連結不能加入私人房')
 
   host.send({ t: 'invite', scope: 'spectator' })
   const specInv = (await host.wait((m) => m.t === 'invite')) as Extract<ServerMsg, { t: 'invite' }>
-  const spec = new Cli('sid-spec', 'Spec'); await spec.open()
+  const spec = new Cli('sid-spec', 'Spec', code); await spec.open()
   spec.send({ t: 'join', code, name: 'Spec', invite: specInv.token })
   await spec.wait((m) => m.t === 'room')
   ok(spec.role === 'spectator', '觀戰邀請 → 伺服器指定為觀戰者')
@@ -69,20 +114,28 @@ async function main() {
   host.msgs.length = 0
   host.send({ t: 'invite', scope: 'player' })
   const plInv = (await host.wait((m) => m.t === 'invite')) as Extract<ServerMsg, { t: 'invite' }>
-  const guest = new Cli('sid-guest', 'Guest'); await guest.open()
+  let guest = new Cli('sid-guest', 'Guest', code); await guest.open()
   guest.send({ t: 'join', code, name: 'Guest', invite: plInv.token })
   await guest.wait((m) => m.t === 'room')
   ok(guest.role === 'player' && guest.team === 1, '玩家邀請 → 入座對手席')
 
   host.send({ t: 'revoke' })
   await host.wait((m) => m.t === 'invite')
-  const late = new Cli('sid-late', 'Late'); await late.open()
+  const late = new Cli('sid-late', 'Late', code); await late.open()
   late.send({ t: 'join', code, name: 'Late', invite: plInv.token })
   ok(!!(await late.wait((m) => m.t === 'error' && m.code === 'revoked')), '撤銷後舊邀請失效')
 
   host.send({ t: 'start' })
-  await guest.wait((m) => m.t === 'snapshot')
-  ok(true, '開始對局，雙方收到快照')
+  ok(!!await guest.wait((m) => m.t === 'snapshot'), '開始對局，雙方收到快照')
+  const pid = guest.pid
+  await new Promise<void>((resolve) => { guest.ws.once('close', () => resolve()); guest.ws.close() })
+  guest = new Cli('sid-guest', 'Guest', code); await guest.open()
+  guest.send({ t: 'join', code, name: 'Guest' })
+  ok(!!await guest.wait((m) => m.t === 'snapshot') && guest.pid === pid, '斷線重連回到同一房間與座位')
+  const ping = performance.now()
+  guest.send({ t: 'ping', n: 123 })
+  ok(!!await guest.wait((m) => m.t === 'pong' && m.n === 123), '房間回應原有 ping/pong')
+  console.log('房間 RTT 約 %d ms（包含測試的 25ms 輪詢）', Math.round(performance.now() - ping))
 
   // 輪流投壺直到結束；非自己回合與觀戰者出手必須被拒絕
   spec.send({ t: 'throw', spec: { angle: 0, power: 0.5, spin: 1 }, taps: [] })
@@ -117,7 +170,7 @@ async function main() {
   for (const c of [guest, spec, stranger, late]) c.ws.close()
   host.send({ t: 'leave' })
   await new Promise((r) => setTimeout(r, 300))
-  const viewer = new Cli('sid-v', 'V'); await viewer.open()
+  const viewer = new Cli('sid-v', 'V', code); await viewer.open()
   viewer.send({ t: 'join', code, name: 'V', invite: plInv.token })
   ok(!!(await viewer.wait((m) => m.t === 'error' && (m.code === 'notFound' || m.code === 'revoked'))), '房主離開後房間已關閉、邀請失效')
   host.ws.close(); viewer.ws.close()
