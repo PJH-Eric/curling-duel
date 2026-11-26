@@ -568,3 +568,34 @@ body .lc-root {
   --lc-field-bg: #fff; --lc-sys-bg: var(--ice-2); --lc-name: var(--lane);
   --lc-z: 45;
 }
+
+.home-support {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  gap: 5px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: .875rem;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  clip-path: none;
+  border-radius: 12px;
+}
+.home-support:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+@media (max-width: 480px) {
+  .home-support {
+    flex-direction: column;
+    gap: 2px;
+    width: 50px;
+    padding-inline: 3px;
+    font-size: 11px;
+    letter-spacing: 0;
+  }
+  .home-support > [aria-hidden="true"] { font-size: 1rem; }
+}

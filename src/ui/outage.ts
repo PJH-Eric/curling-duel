@@ -4,7 +4,7 @@ import { Button, openModal } from './kit'
 import { createOutageWatcher } from '../net/outage'
 import type { NetClient } from '../net/client'
 
-const SPONSOR_URL = 'https://portaly.cc/pjh-eric/support'
+export const SPONSOR_URL = 'https://portaly.cc/pjh-eric/support'
 const SPONSOR_WORD = { 'zh-TW': '贊助', 'zh-CN': '赞助', en: 'Sponsorships' } as const
 
 /** 把提示文字中的「贊助」變成贊助連結 */

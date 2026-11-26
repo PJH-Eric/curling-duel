@@ -5,6 +5,7 @@ import type { GameKind, GameSetup } from '../core/game'
 import { getSettings, loadMissionStars, loadRecords, TEAM_COLORS, updateSettings, type CatStyle } from '../game/settings'
 import { t, type Key } from '../i18n'
 import { h } from '../ui/dom'
+import { SPONSOR_URL } from '../ui/outage'
 import { icon, type IconName } from '../ui/icons'
 import { Button, IconButton, LangMenu, ScrollArea, Segmented, Select, Stepper, TextField } from '../ui/kit'
 import { audio } from '../audio/engine'
@@ -26,11 +27,15 @@ function topbar(nav: MenuNav, opts: { back?: () => void; title?: Key; lobby?: bo
   const lobbyLink = opts.lobby
     ? h('a', { class: 'home-lobby-link', attrs: { href: seoConfig.lobbyUrl, 'aria-label': t('home.lobby'), title: t('home.lobby') } }, icon('back'), h('span', { class: 'home-lobby-label', text: t('home.lobby') }))
     : null
+  const support = opts.lobby ? h('a', {
+    class: 'btn btn-secondary home-support',
+    attrs: { href: SPONSOR_URL, target: '_blank', rel: 'noopener noreferrer' },
+  }, h('span', { attrs: { 'aria-hidden': 'true' }, text: '♥' }), h('span', { text: t('home.support') })) : null
   return h('header', { class: 'topbar' },
     lobbyLink,
     opts.back ? IconButton('back', t('common.back'), opts.back) : null,
     opts.title ? h('div', { class: 'brand' }, t(opts.title)) : h('div', { class: 'brand' }, t('app.title'), h('small', { text: t('app.subtitle') })),
-    h('div', { class: 'spacer' }), LangMenu((l) => updateSettings({ lang: l })), IconButton('gear', t('common.settings'), () => nav.settings()))
+    h('div', { class: 'spacer' }), support, LangMenu((l) => updateSettings({ lang: l })), IconButton('gear', t('common.settings'), () => nav.settings()))
 }
 
 function screen(nav: MenuNav, bar: HTMLElement, ...content: Node[]): HTMLElement {
